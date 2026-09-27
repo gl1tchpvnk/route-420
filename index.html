@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1" />
+<title>BURNOUT 4:20</title>
+<meta name="description" content="A fast, filthy little arcade driving game. Drive stupid." />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Permanent+Marker&family=Archivo+Black&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div id="app">
+    <div id="game-frame">
+      <canvas id="game-canvas"></canvas>
+      <div id="ui-layer"></div>
+    </div>
+  </div>
+
+  <script src="src/utils/constants.js"></script>
+  <script src="src/utils/utils.js"></script>
+  <script src="src/audio/AudioManager.js"></script>
+  <script src="src/core/GameState.js"></script>
+  <script src="src/core/InputManager.js"></script>
+  <script src="src/render/VehicleArt.js"></script>
+  <script src="src/render/ParticleSystem.js"></script>
+  <script src="src/render/Renderer.js"></script>
+  <script src="src/entities/Player.js"></script>
+  <script src="src/entities/Vehicle.js"></script>
+  <script src="src/systems/SpawnManager.js"></script>
+  <script src="src/systems/TrafficManager.js"></script>
+  <script src="src/systems/CollisionSystem.js"></script>
+  <script src="src/systems/HeatSystem.js"></script>
+  <script src="src/systems/BlazeSystem.js"></script>
+  <script src="src/systems/EscalationSystem.js"></script>
+  <script src="src/systems/Event420System.js"></script>
+  <script src="src/systems/ScoreSystem.js"></script>
+  <script src="src/ui/HUD.js"></script>
+  <script src="src/ui/Screens.js"></script>
+  <script src="src/ui/TouchControls.js"></script>
+  <script src="src/ui/DebugPanel.js"></script>
+  <script src="src/main.js"></script>
+</body>
+</html>
