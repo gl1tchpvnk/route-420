@@ -57,7 +57,14 @@ B420.GameState = class GameState {
     this.lastResult = result;
   }
 
-  toMenu() { this.state = B420.STATES.MENU; }
+  toMenu() { this.crashing = false; this.state = B420.STATES.MENU; }
+
+  // Leave a run in progress (HOME button): keep any new best, then go to the menu.
+  abandon() {
+    this.crashing = false;
+    this.save = B420.Storage.updateBest({ score: Math.floor(this.score), time: this.elapsed, maxHeatTier: this.maxHeatTier });
+    this.state = B420.STATES.MENU;
+  }
   isPlaying() { return this.state === B420.STATES.PLAYING; }
   isRunning() { return this.state === B420.STATES.PLAYING || this.crashing; }
 };

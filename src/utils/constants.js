@@ -1,4 +1,4 @@
-// BURNOUT 4:20 — global config, tuning values, palette
+// ROUTE 420 — global config, tuning values, palette
 window.B420 = window.B420 || {};
 
 B420.CONFIG = {
@@ -67,7 +67,10 @@ B420.CONFIG = {
 
   DANGER_ZONE_Y: 150,
 
-  DEBUG_KEY: 'debug'
+  DEBUG_KEY: 'debug',
+
+  // Touch-capable or narrow screens: full-bleed game + on-screen touch controls (mirrored in style.css)
+  NARROW_MQ: '(max-width: 720px), (any-pointer: coarse)'
 };
 
 B420.COLORS = {

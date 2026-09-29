@@ -41,6 +41,8 @@
     syncFrameSize();
     window.addEventListener('resize', syncFrameSize);
     window.addEventListener('orientationchange', () => setTimeout(syncFrameSize, 60));
+    document.addEventListener('gesturestart', (e) => e.preventDefault());
+    gameFrame.addEventListener('touchmove', (e) => e.preventDefault(), { passive: false });
 
     function unlockAudioOnce() {
       audio.unlock();
@@ -51,8 +53,10 @@
     window.addEventListener('keydown', unlockAudioOnce);
 
     function showOnly(which) {
+      screens.showPause(false);
       hud.show(which === 'hud');
-      touch.show(which === 'hud');
+      touch.setActive(which === 'hud');
+      if (debugPanel) debugPanel.el.style.display = which === 'hud' ? '' : 'none';
       if (which === 'menu') screens.showMenu(gameState.save); else screens.hideMenu();
       if (which === 'results') screens.showResults(gameState); else screens.hideResults();
     }
@@ -92,9 +96,21 @@
     }
 
     function requestPause() {
-      if (gameState.state === B420.STATES.PLAYING || gameState.state === B420.STATES.PAUSED) {
-        gameState.togglePause();
-      }
+      if (gameState.crashing) return;
+      if (gameState.state !== B420.STATES.PLAYING && gameState.state !== B420.STATES.PAUSED) return;
+      gameState.togglePause();
+      const paused = gameState.state === B420.STATES.PAUSED;
+      screens.showPause(paused);
+      if (paused) audio.stopEngine(); else audio.startEngine();
+    }
+
+    function goHome() {
+      if (gameState.state !== B420.STATES.PLAYING && gameState.state !== B420.STATES.PAUSED) return;
+      gameState.abandon();
+      audio.stopEngine();
+      hud.hideEventBanner();
+      particles.clear();
+      showOnly('menu');
     }
 
     input.bind({
@@ -108,8 +124,12 @@
     screens.refs.retryBtn.addEventListener('click', startRun);
     screens.refs.menuBtn.addEventListener('click', () => { gameState.toMenu(); showOnly('menu'); });
     hud.bindPause(requestPause);
+    hud.bindHome(goHome);
+    screens.refs.resumeBtn.addEventListener('click', requestPause);
+    screens.refs.pauseHomeBtn.addEventListener('click', goHome);
 
     if (debugMode) {
+      B420.debug = { gameState, player, heat, blaze, score, events, trafficManager, renderer, setCollision: (v) => { collisionEnabled = v; } };
       debugPanel = new B420.DebugPanel(uiLayer, {
         onForceBlaze: () => { blaze.meter = B420.CONFIG.BLAZE_MAX; requestBlaze(); },
         onForceEvent: (type) => events.forceTrigger(type),
@@ -140,7 +160,7 @@
     }
 
     function popupAt(text, x, y, tight) {
-      hud.popup(text, x - 30, y - 20, tight ? 'tight' : '');
+      hud.popup(text, x, y - 20, tight ? 'tight' : '');
     }
 
     function update(dt) {
@@ -174,9 +194,8 @@
       const { scrollSpeed } = trafficManager.update(dt, gameState.elapsed, player, { speedMult });
 
       score.tick(dt, heat.multiplier(), blaze.scoreMult());
-      gameState.score = score.value;
 
-      const stageMsg = escalation.update(gameState.score);
+      const stageMsg = escalation.update(score.value);
       if (stageMsg) { player.setStage(escalation.stage); gameState.escalationStage = escalation.stage; hud.stageToast(stageMsg); }
 
       const survivedBefore = events.survivedCount;
@@ -250,6 +269,8 @@
         particles.spawnSmoke(v.x + B420.Utils.randRange(-16, 16), v.y, 'rgba(150,220,120,0.5)', 2);
       }
 
+      gameState.score = score.value; // ScoreSystem is the single source of truth, synced after ALL bonuses
+
       // collision
       if (collisionEnabled) {
         const hit = collision.checkPlayerCollision(player, trafficManager.vehicles, trafficManager.rival);
@@ -259,7 +280,7 @@
       if (debugPanel) debugPanel.updateReadout(`heat ${heat.value.toFixed(0)}/100 (x${heat.tier}) | t=${gameState.elapsed.toFixed(1)}s | next420=${events.nextTriggerTime.toFixed(0)}s | vehicles=${trafficManager.vehicles.length}`);
 
       hud.update(gameState, heat, blaze, nextEventIn);
-      touch.setBlazeReady(blaze.ready);
+      touch.setBlaze(blaze.progressFraction(), blaze.ready);
     }
 
     function render(dt) {
@@ -301,7 +322,7 @@
       lastT = now;
       dt = Math.min(dt, 1 / 20); // clamp huge gaps (tab switch, etc.)
       update(dt);
-      render(dt);
+      render(gameState.state === B420.STATES.PAUSED ? 0 : dt);
       requestAnimationFrame(frame);
     }
 

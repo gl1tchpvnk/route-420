@@ -1,5 +1,6 @@
-// Large-target touch controls for mobile. Desktop keyboard still works fully
-// without these; they call the same InputManager trigger methods.
+// Touch controls built on pointer events (one code path for touch/mouse/pen).
+// Visibility is handled in CSS: only touch-capable or narrow screens show them.
+// Keyboard input is untouched and keeps working everywhere.
 window.B420 = window.B420 || {};
 
 B420.TouchControls = class TouchControls {
@@ -8,39 +9,39 @@ B420.TouchControls = class TouchControls {
     this.el = document.createElement('div');
     this.el.className = 'touch-controls';
     this.el.innerHTML = `
-      <button class="tc-btn tc-left" data-el="left" aria-label="Move left">◀</button>
-      <button class="tc-blaze" data-el="blaze" aria-label="Blaze">BLAZE</button>
-      <button class="tc-btn tc-right" data-el="right" aria-label="Move right">▶</button>
+      <button class="tc-btn tc-left" data-el="left" aria-label="Move left"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 4 5 12l10 8z"/></svg><span>LEFT</span></button>
+      <button class="tc-btn tc-blaze" data-el="blaze" aria-label="Blaze" aria-disabled="true"><span>BLAZE</span></button>
+      <button class="tc-btn tc-right" data-el="right" aria-label="Move right"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 4l10 8-10 8z"/></svg><span>RIGHT</span></button>
     `;
     root.appendChild(this.el);
     this.refs = {};
     this.el.querySelectorAll('[data-el]').forEach(n => { this.refs[n.dataset.el] = n; });
 
-    this._bindTap(this.refs.left, () => this.input.triggerLeft());
-    this._bindTap(this.refs.right, () => this.input.triggerRight());
-    this._bindTap(this.refs.blaze, () => this.input.triggerBlaze());
-
-    this.el.addEventListener('touchmove', (e) => e.preventDefault(), { passive: false });
+    this._bind(this.refs.left, () => this.input.triggerLeft());
+    this._bind(this.refs.right, () => this.input.triggerRight());
+    this._bind(this.refs.blaze, () => this.input.triggerBlaze());
+    this.el.addEventListener('contextmenu', (e) => e.preventDefault());
   }
 
-  _bindTap(node, fn) {
-    let handled = false;
-    node.addEventListener('touchstart', (e) => {
+  // One action per press (pointerdown only, no click fallback => no double trigger).
+  _bind(node, fn) {
+    node.addEventListener('pointerdown', (e) => {
       e.preventDefault();
-      handled = true;
       node.classList.add('pressed');
       fn();
-    }, { passive: false });
-    node.addEventListener('touchend', (e) => {
-      e.preventDefault();
-      node.classList.remove('pressed');
-    }, { passive: false });
-    node.addEventListener('click', (e) => {
-      if (handled) { handled = false; return; }
-      fn();
     });
+    const release = () => node.classList.remove('pressed');
+    node.addEventListener('pointerup', release);
+    node.addEventListener('pointercancel', release);
+    node.addEventListener('pointerleave', release);
   }
 
-  setBlazeReady(ready) { this.refs.blaze.classList.toggle('ready', ready); }
-  show(v) { this.el.style.display = v ? '' : 'none'; }
+  // BLAZE button: fills with meter progress; solid + pulsing when ready.
+  setBlaze(fraction, ready) {
+    this.refs.blaze.style.setProperty('--p', String(fraction));
+    this.refs.blaze.classList.toggle('ready', ready);
+    this.refs.blaze.setAttribute('aria-disabled', ready ? 'false' : 'true');
+  }
+
+  setActive(v) { this.el.classList.toggle('active', v); }
 };

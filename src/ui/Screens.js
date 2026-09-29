@@ -7,7 +7,7 @@ B420.Screens = class Screens {
     this.menuEl.className = 'screen menu-screen';
     this.menuEl.innerHTML = `
       <div class="menu-inner">
-        <h1 class="game-title">BURNOUT <span>4:20</span></h1>
+        <h1 class="game-title" aria-label="Route 420">ROUTE <span>420</span></h1>
         <p class="tagline">drive stupid.</p>
         <button class="btn btn-primary" data-el="playBtn">PLAY</button>
         <button class="btn btn-ghost" data-el="howBtn">HOW TO DRIVE</button>
@@ -36,17 +36,30 @@ B420.Screens = class Screens {
       </div>
     `;
 
+    this.pauseEl = document.createElement('div');
+    this.pauseEl.className = 'screen pause-screen';
+    this.pauseEl.innerHTML = `
+      <div class="menu-inner">
+        <h2 class="run-over">PAUSED</h2>
+        <button class="btn btn-primary" data-el="resumeBtn">RESUME</button>
+        <button class="btn btn-ghost" data-el="pauseHomeBtn">MAIN MENU</button>
+      </div>
+    `;
+
     root.appendChild(this.menuEl);
     root.appendChild(this.resultsEl);
+    root.appendChild(this.pauseEl);
 
     this.refs = {};
-    [this.menuEl, this.resultsEl].forEach(el => {
+    [this.menuEl, this.resultsEl, this.pauseEl].forEach(el => {
       el.querySelectorAll('[data-el]').forEach(n => { this.refs[n.dataset.el] = n; });
     });
 
     this.refs.howBtn.addEventListener('click', () => this.refs.howPanel.classList.add('show'));
     this.refs.howCloseBtn.addEventListener('click', () => this.refs.howPanel.classList.remove('show'));
   }
+
+  showPause(v) { this.pauseEl.classList.toggle('show', v); }
 
   showMenu(save) {
     this.refs.howPanel.classList.remove('show');

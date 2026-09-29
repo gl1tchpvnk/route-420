@@ -1,7 +1,7 @@
 {
-  "name": "burnout-420",
+  "name": "route-420",
   "version": "1.0.0",
-  "description": "A fast, funny, slightly filthy arcade driving game. Drive stupid.",
+  "description": "Route 420 — a fast, funny, slightly filthy arcade driving game. Drive stupid.",
   "private": true,
   "type": "commonjs",
   "scripts": {

@@ -5,7 +5,7 @@ const path = require('path');
 
 const root = path.join(__dirname, '..');
 const dist = path.join(root, 'dist');
-const SKIP = new Set(['node_modules', 'dist', '.git', 'tools', '.github']);
+const SKIP = new Set(['node_modules', 'dist', '.git', 'tools', '.github', 'bundled']);
 
 function copyDir(src, dest) {
   fs.mkdirSync(dest, { recursive: true });

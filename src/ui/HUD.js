@@ -3,28 +3,22 @@ window.B420 = window.B420 || {};
 
 B420.HUD = class HUD {
   constructor(root) {
+    this.touch = !!(window.matchMedia && window.matchMedia('(any-pointer: coarse)').matches);
     this.el = document.createElement('div');
     this.el.className = 'hud';
     this.el.innerHTML = `
       <div class="hud-top">
-        <div class="hud-score">
-          <span class="hud-label">SCORE</span>
-          <span class="hud-value" data-el="score">0</span>
+        <div class="hud-chip"><span class="hud-label">SCORE</span><span class="hud-value" data-el="score">000000</span></div>
+        <div class="hud-chip"><span class="hud-label">TIME</span><span class="hud-value sm" data-el="time">0:00</span></div>
+        <div class="hud-chip hud-next420" data-el="next420"><span class="hud-label">4:20 IN</span><span class="hud-value sm" data-el="next420Val">4:20</span></div>
+        <div class="hud-btns">
+          <button class="hud-btn" data-el="pauseBtn" aria-label="Pause" title="Pause (P)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 4h4v16H6zM14 4h4v16h-4z"/></svg></button>
+          <button class="hud-btn" data-el="homeBtn" aria-label="Home" title="Main menu"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11.5 12 4l9 7.5V21h-6v-6H9v6H3z"/></svg></button>
         </div>
-        <div class="hud-time" data-el="time">0:00</div>
-        <div class="hud-next420" data-el="next420">4:20 IN <span data-el="next420Val">4:20</span></div>
-        <button class="hud-pause" data-el="pauseBtn" aria-label="Pause">II</button>
       </div>
       <div class="hud-mid">
-        <div class="heat-row">
-          <span class="hud-label">HEAT</span>
-          <span class="heat-value" data-el="heatValue">x1</span>
-          <div class="heat-bar"><div class="heat-bar-fill" data-el="heatFill"></div></div>
-        </div>
-        <div class="blaze-row">
-          <span class="hud-label">BLAZE</span>
-          <div class="blaze-bar"><div class="blaze-bar-fill" data-el="blazeFill"></div></div>
-        </div>
+        <div class="meter-row"><span class="hud-label">HEAT</span><span class="heat-value" data-el="heatValue">x1</span><div class="meter"><div class="meter-fill heat-fill" data-el="heatFill"></div></div></div>
+        <div class="meter-row"><span class="hud-label" data-el="blazeLabel">BLAZE</span><div class="meter"><div class="meter-fill blaze-fill" data-el="blazeFill"></div></div></div>
       </div>
       <div class="popup-layer" data-el="popups"></div>
       <div class="event-banner" data-el="eventBanner"></div>
@@ -33,32 +27,34 @@ B420.HUD = class HUD {
     root.appendChild(this.el);
     this.refs = {};
     this.el.querySelectorAll('[data-el]').forEach(n => { this.refs[n.dataset.el] = n; });
-    this._popupId = 0;
   }
 
-  show(v) { this.el.style.display = v ? '' : 'none'; }
-
+  // Explicit display value: '' would fall back to the stylesheet's display:none.
+  show(v) { this.el.style.display = v ? 'block' : 'none'; }
   bindPause(fn) { this.refs.pauseBtn.addEventListener('click', fn); }
+  bindHome(fn) { this.refs.homeBtn.addEventListener('click', fn); }
 
   update(gameState, heat, blaze, nextEventIn) {
-    this.refs.score.textContent = Math.floor(gameState.score).toLocaleString();
-    this.refs.time.textContent = B420.Utils.formatTime(gameState.elapsed);
-    this.refs.heatValue.textContent = 'x' + heat.tier;
-    this.refs.heatValue.style.color = heat.tier >= 4 ? B420.COLORS.flame1 : '';
-    this.refs.heatFill.style.width = (heat.value) + '%';
-    this.refs.blazeFill.style.width = (blaze.progressFraction() * 100) + '%';
-    this.refs.blazeFill.classList.toggle('ready', blaze.ready);
+    const r = this.refs;
+    r.score.textContent = String(Math.floor(gameState.score)).padStart(6, '0');
+    r.time.textContent = B420.Utils.formatTime(gameState.elapsed);
+    r.heatValue.textContent = 'x' + heat.tier;
+    r.heatValue.classList.toggle('hot', heat.tier >= 4);
+    r.heatFill.style.width = heat.value + '%';
+    r.blazeFill.style.width = (blaze.progressFraction() * 100) + '%';
+    r.blazeFill.classList.toggle('ready', blaze.ready);
+    r.blazeLabel.textContent = blaze.ready ? (this.touch ? 'READY' : 'SPACE') : 'BLAZE';
+    r.blazeLabel.classList.toggle('ready', blaze.ready);
     this.el.classList.toggle('blaze-active', blaze.active);
 
     if (nextEventIn != null) {
-      this.refs.next420Val.textContent = B420.Utils.formatTime(nextEventIn);
-      const n = this.refs.next420;
+      const sec = Math.ceil(nextEventIn);
+      r.next420Val.textContent = B420.Utils.formatTime(sec);
+      const n = r.next420;
       n.classList.toggle('t20', nextEventIn <= 20 && nextEventIn > 10);
       n.classList.toggle('t10', nextEventIn <= 10 && nextEventIn > 4);
-      const tick = nextEventIn <= 4;
-      n.classList.toggle('t4', tick);
-      if (tick) {
-        const sec = Math.ceil(nextEventIn);
+      n.classList.toggle('t4', nextEventIn <= 4);
+      if (nextEventIn <= 4) {
         if (sec !== this._lastTickSec) { this._lastTickSec = sec; n.classList.remove('tick'); void n.offsetWidth; n.classList.add('tick'); }
       } else {
         this._lastTickSec = null;
@@ -66,13 +62,14 @@ B420.HUD = class HUD {
     }
   }
 
-  popup(text, laneX, y, kind) {
-    const id = this._popupId++;
+  // x/y are canvas pixels; the UI layer is CSS-zoomed (internal width ~400), so convert.
+  popup(text, x, y, kind) {
+    const z = parseFloat(this.el.parentNode.style.zoom) || 1;
     const node = document.createElement('div');
     node.className = 'popup ' + (kind || '');
     node.textContent = text;
-    node.style.left = laneX + 'px';
-    node.style.top = y + 'px';
+    node.style.left = B420.Utils.clamp(x / z, 105, 295) + 'px';
+    node.style.top = (y / z) + 'px';
     this.refs.popups.appendChild(node);
     requestAnimationFrame(() => node.classList.add('rise'));
     setTimeout(() => node.remove(), 900);

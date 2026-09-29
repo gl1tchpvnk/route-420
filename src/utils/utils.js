@@ -40,6 +40,7 @@ B420.Utils = {
 };
 
 B420.Storage = {
+  // Legacy key name kept on purpose so existing saved best scores survive the Route 420 rename.
   KEY: 'burnout420_save_v1',
   load() {
     try {

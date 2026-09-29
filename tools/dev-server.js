@@ -35,6 +35,6 @@ const server = http.createServer((req, res) => {
 });
 
 server.listen(port, () => {
-  console.log(`BURNOUT 4:20 dev server running at http://localhost:${port}`);
+  console.log(`ROUTE 420 dev server running at http://localhost:${port}`);
   console.log(`Debug mode: http://localhost:${port}/?debug=true`);
 });
