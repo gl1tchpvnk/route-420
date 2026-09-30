@@ -48,7 +48,7 @@ B420.TrafficManager = class TrafficManager {
       });
     }
 
-    for (const v of this.vehicles) v.update(dt, scrollSpeed, player);
+    for (const v of this.vehicles) v.update(dt, scrollSpeed, player, this.vehicles);
     this.vehicles = this.vehicles.filter(v => !v.dead && !v.abducted && v.y < this.renderer.height + 80);
 
     for (const p of this.pickups) {

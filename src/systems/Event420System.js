@@ -27,6 +27,7 @@ B420.Event420System = class Event420System {
     this.munchieTimer = 0;
     this.survivedCount = 0;
     this.pendingSurvivedCredit = false;
+    this.fired = false; // exactly one 4:20 event per run
   }
 
   onDebugSkipNear420(gameStateElapsedSetter) {
@@ -39,6 +40,7 @@ B420.Event420System = class Event420System {
   }
 
   _begin(def) {
+    this.fired = true;
     this._endActive();
     this.active = { ...def, timer: def.duration };
     this.announceStep = 0;
@@ -58,10 +60,9 @@ B420.Event420System = class Event420System {
   }
 
   update(dt, elapsed, player, vehicles) {
-    if (!this.active && elapsed >= this.nextTriggerTime) {
+    if (!this.active && !this.fired && elapsed >= this.nextTriggerTime) {
       const def = B420.Utils.choice(this.registry);
       this._begin(def);
-      this.nextTriggerTime += B420.CONFIG.FIRST_420_TIME;
     }
 
     if (this.announcePhase > 0) {

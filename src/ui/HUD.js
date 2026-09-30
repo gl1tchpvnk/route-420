@@ -10,7 +10,7 @@ B420.HUD = class HUD {
       <div class="hud-top">
         <div class="hud-chip"><span class="hud-label">SCORE</span><span class="hud-value" data-el="score">000000</span></div>
         <div class="hud-chip"><span class="hud-label">TIME</span><span class="hud-value sm" data-el="time">0:00</span></div>
-        <div class="hud-chip hud-next420" data-el="next420"><span class="hud-label">4:20 IN</span><span class="hud-value sm" data-el="next420Val">4:20</span></div>
+        <div class="hud-chip hud-next420" data-el="next420"><span class="hud-label" data-el="next420Label">4:20 IN</span><span class="hud-value sm" data-el="next420Val">4:20</span></div>
         <div class="hud-btns">
           <button class="hud-btn" data-el="pauseBtn" aria-label="Pause" title="Pause (P)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 4h4v16H6zM14 4h4v16h-4z"/></svg></button>
           <button class="hud-btn" data-el="homeBtn" aria-label="Home" title="Main menu"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11.5 12 4l9 7.5V21h-6v-6H9v6H3z"/></svg></button>
@@ -47,10 +47,11 @@ B420.HUD = class HUD {
     r.blazeLabel.classList.toggle('ready', blaze.ready);
     this.el.classList.toggle('blaze-active', blaze.active);
 
+    const n = r.next420;
     if (nextEventIn != null) {
       const sec = Math.ceil(nextEventIn);
+      r.next420Label.textContent = '4:20 IN';
       r.next420Val.textContent = B420.Utils.formatTime(sec);
-      const n = r.next420;
       n.classList.toggle('t20', nextEventIn <= 20 && nextEventIn > 10);
       n.classList.toggle('t10', nextEventIn <= 10 && nextEventIn > 4);
       n.classList.toggle('t4', nextEventIn <= 4);
@@ -59,6 +60,10 @@ B420.HUD = class HUD {
       } else {
         this._lastTickSec = null;
       }
+    } else {
+      r.next420Label.textContent = '4:20';
+      r.next420Val.textContent = 'SURVIVED';
+      n.classList.remove('t20', 't10', 't4', 'tick');
     }
   }
 
@@ -77,10 +82,12 @@ B420.HUD = class HUD {
 
   stageToast(text) {
     const node = this.refs.stageToast;
+    clearTimeout(this._toastTimer);
     node.textContent = text;
     node.classList.remove('show');
     void node.offsetWidth;
     node.classList.add('show');
+    this._toastTimer = setTimeout(() => node.classList.remove('show'), 900);
   }
 
   eventBanner(step, text) {

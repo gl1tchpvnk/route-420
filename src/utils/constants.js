@@ -67,6 +67,16 @@ B420.CONFIG = {
 
   DANGER_ZONE_Y: 150,
 
+  TRAFFIC_FOLLOW_GAP: 150,
+  TRAFFIC_BRAKE_GAP: 60,
+  TRAFFIC_LANE_COOLDOWN: 2.6,
+  TRAFFIC_CHECK_AHEAD: 85,
+  TRAFFIC_CHECK_BEHIND: 55,
+  TRAFFIC_TELEGRAPH_S: 0.2,
+  TRAFFIC_LANECHANGE_S: 0.3,
+  REACTION_BASE: 70,
+  REACTION_TIME: 0.55, // reactionDistance = base + scrollSpeed * this
+
   DEBUG_KEY: 'debug',
 
   // Touch-capable or narrow screens: full-bleed game + on-screen touch controls (mirrored in style.css)

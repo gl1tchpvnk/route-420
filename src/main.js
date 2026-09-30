@@ -207,7 +207,7 @@
       if (events.announcePhase > 0) hud.eventBanner(events.announceStep, events.active ? events.active.name : '');
       else hud.hideEventBanner();
       gameState.events420Survived = events.survivedCount;
-      const nextEventIn = Math.max(0, events.nextTriggerTime - gameState.elapsed);
+      const nextEventIn = events.fired ? null : Math.max(0, events.nextTriggerTime - gameState.elapsed);
 
       // near misses
       const nm = collision.checkNearMisses(dt, player, trafficManager.vehicles);

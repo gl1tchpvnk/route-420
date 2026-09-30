@@ -1,15 +1,16 @@
 # ROUTE 420
 
-drive stupid.
+A fast arcade driving game about hot rods, near misses, HEAT, and BLAZE.
 
-A fast, funny, slightly filthy arcade driving game. Lane-switch through traffic, chase near misses for HEAT multipliers, fill BLAZE for a chaotic power mode, and survive the random event that hits every run at 4:20.
+Drive recklessly — near misses and tight passes build HEAT, multiplying your risk bonuses up to x5. Collect green pickups to fill the BLAZE meter, then pop it for a short burst of chaos and bonus score. Survive to 4:20 and Route 420 fires one randomized event that flips the road on its head for the rest of the run.
 
-## Requirements
+## Controls
 
-Node.js 16+ (only used to run a zero-dependency static file server — no build tools, no npm packages).
+**Desktop**
+- `← / A` — left
+- `→ / D` — right
+- `SPACE / ↑` — BLAZE (once the meter's full)
+- `P / ESC` — pause
 
-## Installation
-
-```
-npm install
-npm run dev
+**Mobile**
+- Touch controls for LEFT, RIGHT, and BLAZE, plus PAUSE/HOME buttons in the HUD.

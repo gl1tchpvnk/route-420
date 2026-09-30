@@ -21,14 +21,14 @@ B420.InputManager = class InputManager {
 
   _keydown(e) {
     if (this._down[e.code]) {
-      if (['ArrowLeft', 'ArrowRight', 'KeyA', 'KeyD', 'Space'].includes(e.code)) e.preventDefault();
+      if (['ArrowLeft', 'ArrowRight', 'KeyA', 'KeyD', 'Space', 'ArrowUp'].includes(e.code)) e.preventDefault();
       return;
     }
     this._down[e.code] = true;
     switch (e.code) {
       case 'ArrowLeft': case 'KeyA': this._onLeft && this._onLeft(); e.preventDefault(); break;
       case 'ArrowRight': case 'KeyD': this._onRight && this._onRight(); e.preventDefault(); break;
-      case 'Space': this._onBlaze && this._onBlaze(); e.preventDefault(); break;
+      case 'Space': case 'ArrowUp': this._onBlaze && this._onBlaze(); e.preventDefault(); break;
       case 'KeyP': case 'Escape': this._onPause && this._onPause(); e.preventDefault(); break;
     }
   }
