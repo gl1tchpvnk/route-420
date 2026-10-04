@@ -92,9 +92,9 @@ B420.Vehicle = class Vehicle {
     const ahead = B420._trafficNeighbor(vehicles, this, this.lane, true);
     const FG = B420.CONFIG.TRAFFIC_FOLLOW_GAP, BG = B420.CONFIG.TRAFFIC_BRAKE_GAP;
     if (ahead && ahead.gap < BG) {
-      this.brakeMult = Math.max(0.12, this.brakeMult - dt * 4); // emergency brake: immediate, not eased
+      this.brakeMult = Math.max(0.42, this.brakeMult - dt * 4); // emergency brake: immediate, not eased, but never looks stuck
     } else {
-      const target = !ahead || ahead.gap >= FG ? 1 : B420.Utils.clamp(ahead.gap / FG, 0.4, 1);
+      const target = !ahead || ahead.gap >= FG ? 1 : B420.Utils.clamp(ahead.gap / FG, 0.48, 1);
       this.brakeMult = B420.Utils.lerp(this.brakeMult, target, Math.min(1, dt * 5));
     }
 

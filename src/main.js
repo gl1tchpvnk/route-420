@@ -21,6 +21,7 @@
     const collision = new B420.CollisionSystem();
     const heat = new B420.HeatSystem();
     const blaze = new B420.BlazeSystem();
+    const fuel = new B420.FuelSystem();
     const escalation = new B420.EscalationSystem();
     const score = new B420.ScoreSystem();
     const events = new B420.Event420System(trafficManager, renderer, audio);
@@ -42,6 +43,8 @@
     window.addEventListener('resize', syncFrameSize);
     window.addEventListener('orientationchange', () => setTimeout(syncFrameSize, 60));
     document.addEventListener('gesturestart', (e) => e.preventDefault());
+    window.addEventListener('pagehide', () => gameState.flushHi(true));
+    document.addEventListener('visibilitychange', () => { if (document.hidden) gameState.flushHi(true); });
     gameFrame.addEventListener('touchmove', (e) => e.preventDefault(), { passive: false });
 
     function unlockAudioOnce() {
@@ -71,6 +74,8 @@
       trafficManager.reset();
       heat.reset();
       blaze.reset();
+      fuel.reset();
+      player.fuel = 0;
       escalation.reset();
       score.reset();
       events.reset();
@@ -107,6 +112,8 @@
     function goHome() {
       if (gameState.state !== B420.STATES.PLAYING && gameState.state !== B420.STATES.PAUSED) return;
       gameState.abandon();
+      fuel.reset();
+      player.fuel = 0;
       audio.stopEngine();
       hud.hideEventBanner();
       particles.clear();
@@ -129,7 +136,7 @@
     screens.refs.pauseHomeBtn.addEventListener('click', goHome);
 
     if (debugMode) {
-      B420.debug = { gameState, player, heat, blaze, score, events, trafficManager, renderer, setCollision: (v) => { collisionEnabled = v; } };
+      B420.debug = { gameState, player, heat, blaze, score, events, trafficManager, renderer, fuel, hud, roadSpeedMult, setCollision: (v) => { collisionEnabled = v; } };
       debugPanel = new B420.DebugPanel(uiLayer, {
         onForceBlaze: () => { blaze.meter = B420.CONFIG.BLAZE_MAX; requestBlaze(); },
         onForceEvent: (type) => events.forceTrigger(type),
@@ -143,6 +150,7 @@
             trafficManager.rivalActive = true;
           }
         },
+        onForceFuel: () => trafficManager.pickups.push({ kind: 'fuel', lane: player.lane, x: renderer.laneX(player.lane), y: player.y - 150, w: 22, h: 22, collected: false }),
         onMaxHeat: () => heat.add(999),
         onAddScore: (amt) => score.addBonus(amt),
         onToggleCollision: (v) => { collisionEnabled = v; }
@@ -151,6 +159,8 @@
 
     function triggerCollision(otherVehicle) {
       gameState.beginCrash();
+      fuel.reset();
+      player.fuel = 0;
       renderer.addShake(1);
       audio.collision();
       audio.stopEngine();
@@ -161,6 +171,13 @@
 
     function popupAt(text, x, y, tight) {
       hud.popup(text, x, y - 20, tight ? 'tight' : '');
+    }
+
+    // Road speed: BLAZE alone slows traffic (0.78x); FUEL alone boosts (up to 1.22x). Together they blend
+    // toward a bounded FUEL_BLAZE_COMBINED (~1.08x) so FUEL still reads as a boost during BLAZE.
+    function roadSpeedMult() {
+      const bm = blaze.trafficSpeedMult();
+      return bm < 1 ? B420.Utils.lerp(bm, B420.CONFIG.FUEL_BLAZE_COMBINED, fuel.level) : fuel.speedMult();
     }
 
     function update(dt) {
@@ -187,13 +204,15 @@
       gameState.elapsed += dt;
       player.update(dt, blaze.active);
       blaze.update(dt);
+      fuel.update(dt);
+      player.fuel = fuel.level;
       heat.update(dt);
-      audio.updateEngine(B420.Utils.clamp(gameState.elapsed / B420.CONFIG.SPEED_RAMP_SECONDS, 0.15, 1));
+      audio.updateEngine(B420.Utils.clamp(gameState.elapsed / B420.CONFIG.SPEED_RAMP_SECONDS, 0.15, 1) + fuel.level * 0.3);
 
-      const speedMult = blaze.trafficSpeedMult();
+      const speedMult = roadSpeedMult();
       const { scrollSpeed } = trafficManager.update(dt, gameState.elapsed, player, { speedMult });
 
-      score.tick(dt, heat.multiplier(), blaze.scoreMult());
+      score.tick(dt, heat.multiplier(), blaze.scoreMult() * fuel.scoreMult());
 
       const stageMsg = escalation.update(score.value);
       if (stageMsg) { player.setStage(escalation.stage); gameState.escalationStage = escalation.stage; hud.stageToast(stageMsg); }
@@ -204,7 +223,7 @@
         score.addBonus(B420.CONFIG.EVENT_SURVIVE_SCORE);
         popupAt(`4:20 SURVIVED +${B420.CONFIG.EVENT_SURVIVE_SCORE}`, player.x, player.y - 55, false);
       }
-      if (events.announcePhase > 0) hud.eventBanner(events.announceStep, events.active ? events.active.name : '');
+      if (events.announcePhase > 0) hud.eventBanner(events.announceStep, "WHOA... IT'S SLOWING DOWN");
       else hud.hideEventBanner();
       gameState.events420Survived = events.survivedCount;
       const nextEventIn = events.fired ? null : Math.max(0, events.nextTriggerTime - gameState.elapsed);
@@ -214,7 +233,7 @@
       for (const e of nm.events) {
         gameState.nearMisses++;
         const base = e.tight ? B420.CONFIG.NEAR_MISS_SCORE_TIGHT : B420.CONFIG.NEAR_MISS_SCORE;
-        const pts = base * heat.multiplier();
+        const pts = base * heat.multiplier() * fuel.scoreMult();
         score.addBonus(pts);
         heat.add(e.tight ? B420.CONFIG.HEAT_PER_TIGHT_MISS : B420.CONFIG.HEAT_PER_NEAR_MISS);
         const text = e.tight ? B420.Utils.choice(B420.TIGHT_MISS_TEXTS) : B420.Utils.choice(B420.NEAR_MISS_TEXTS);
@@ -222,7 +241,7 @@
         audio.nearMiss(e.tight);
       }
       if (nm.thread) {
-        const pts = B420.CONFIG.THREAD_NEEDLE_BONUS * heat.multiplier();
+        const pts = B420.CONFIG.THREAD_NEEDLE_BONUS * heat.multiplier() * fuel.scoreMult();
         score.addBonus(pts);
         heat.add(B420.CONFIG.HEAT_PER_THREAD);
         popupAt(`THREAD THE NEEDLE +${Math.round(pts)}`, player.x, player.y - 55, true);
@@ -238,6 +257,11 @@
           score.addBonus(B420.CONFIG.PICKUP_BLAZE_SCORE);
           audio.pickup();
           particles.spawnPop(p.x, p.y, B420.COLORS.blazeGreenBright);
+        } else if (p.kind === 'fuel') {
+          fuel.collect();
+          audio.fuelHit();
+          hud.stageToast('FUEL HIT');
+          particles.spawnPop(p.x, p.y, B420.COLORS.burntOrange);
         } else {
           score.addBonus(B420.CONFIG.MUNCHIE_SCORE);
           popupAt(`MUNCHIES +${B420.CONFIG.MUNCHIE_SCORE}`, p.x, p.y - 10, false);
@@ -248,7 +272,7 @@
 
       // rival overtake
       if (trafficManager.rival && collision.checkRivalOvertake(player, trafficManager.rival)) {
-        const pts = B420.CONFIG.RIVAL_SMOKE_SCORE * heat.multiplier();
+        const pts = B420.CONFIG.RIVAL_SMOKE_SCORE * heat.multiplier() * fuel.scoreMult();
         score.addBonus(pts);
         heat.add(B420.CONFIG.HEAT_PER_RIVAL);
         gameState.rivalsSmoked++;
@@ -263,6 +287,8 @@
       }
       particles.update(dt);
 
+      if (fuel.level > 0.2 && Math.random() < 0.7) particles.spawnSmoke(exhaust.x, exhaust.y, '#d9822b', 1);
+
       // blaze echoes
       if (blaze.shouldSpawnEcho() && trafficManager.vehicles.length) {
         const v = B420.Utils.choice(trafficManager.vehicles);
@@ -270,6 +296,8 @@
       }
 
       gameState.score = score.value; // ScoreSystem is the single source of truth, synced after ALL bonuses
+      gameState.syncHi();
+      gameState.flushHi(false);
 
       // collision
       if (collisionEnabled) {
@@ -290,9 +318,11 @@
       if (gameState.crashing) {
         bgSpeed = trafficManager.currentScrollSpeed(gameState.elapsed) * 0.08;
       } else if (gameState.isPlaying()) {
-        bgSpeed = trafficManager.currentScrollSpeed(gameState.elapsed) * blaze.trafficSpeedMult();
+        bgSpeed = trafficManager.currentScrollSpeed(gameState.elapsed) * roadSpeedMult();
       }
-      renderer.drawBackground(dt, bgSpeed, movingLines);
+      const slowdownActive = !!events.active && events.announcePhase <= 0;
+      renderer.drawBackground(dt, bgSpeed, movingLines, slowdownActive ? B420.CONFIG.SLOWDOWN_TRAIL_ALPHA : 0);
+      hud.el.classList.toggle('slowdown-ease', slowdownActive);
 
       if (gameState.state === B420.STATES.MENU) {
         player.draw(renderer.ctx, false);
@@ -301,6 +331,7 @@
         return;
       }
 
+      if (fuel.level > 0.02) renderer.drawFuelStreaks(fuel.level);
       trafficManager.draw(renderer.ctx, renderer.time);
       events.drawOverlay(renderer.ctx);
       particles.draw(renderer.ctx);
@@ -311,6 +342,7 @@
         player.draw(renderer.ctx, false, spin);
       }
       if (events.isGreenFogActive()) renderer.drawGreenFog(events.greenFogStrength());
+      if (slowdownActive) renderer.drawSlowdownVignette(B420.CONFIG.SLOWDOWN_VIGNETTE_ALPHA * (events.isGreenFogActive() ? 0.35 : 1));
       renderer.drawVignette();
       renderer.drawGrain();
       renderer.end();

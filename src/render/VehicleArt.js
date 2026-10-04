@@ -97,7 +97,9 @@ B420.VehicleArt = (function () {
   // ---- player hot rod, cumulative stages 1-6 ----
   function drawPlayer(ctx, player, bodyColor, flameAccent) {
     const stage = player.stage || 1;
-    const jitter = stage >= 5 ? Math.sin((player.wobble || 0) * 40) * (stage >= 6 ? 1.4 : 0.7) : 0;
+    const fuel = player.fuel || 0;
+    const jitter = (stage >= 5 ? Math.sin((player.wobble || 0) * 40) * (stage >= 6 ? 1.4 : 0.7) : 0)
+      + fuel * Math.sin((player.wobble || 0) * 55) * 0.6;
     ctx.save();
     ctx.translate(jitter, 0);
 
@@ -167,10 +169,10 @@ B420.VehicleArt = (function () {
     }
 
     // flames from exhaust — stage 4+
-    if (stage >= 4) {
+    if (stage >= 4 || fuel > 0.05) {
       const t = (player.wobble || 0) * 10;
       const flicker = 0.75 + Math.sin(t) * 0.25;
-      const flen = (stage >= 6 ? 22 : 13) * flicker;
+      const flen = (stage >= 6 ? 22 : stage >= 4 ? 13 : 8) * flicker * (1 + 0.7 * fuel);
       drawFlame(ctx, -w / 2 - 0.5, pipeLen - 1, flen, flameAccent);
       drawFlame(ctx, w / 2 + 0.5, pipeLen - 1, flen * 0.9, flameAccent);
     }
@@ -229,5 +231,53 @@ B420.VehicleArt = (function () {
     ctx.restore();
   }
 
-  return { drawPlayer, drawTraffic, drawRival, drawUFO, drawBeam, rr };
+  // BLAZE pickup: chunky 7-leaflet cannabis-leaf silhouette on a soft green halo (no veins, no text).
+  function drawBlazeLeaf(ctx, t) {
+    const pulse = 1 + Math.sin(t * 2.6) * 0.05;
+    ctx.scale(pulse, pulse);
+    const halo = ctx.createRadialGradient(0, 0, 4, 0, 0, 16);
+    halo.addColorStop(0, 'rgba(120,190,70,0.42)');
+    halo.addColorStop(1, 'rgba(90,160,60,0.14)');
+    ctx.fillStyle = halo;
+    ctx.beginPath(); ctx.arc(0, 0, 15.5, 0, Math.PI * 2); ctx.fill();
+    ctx.translate(0, 5.5);
+    ctx.lineJoin = 'round';
+    const leaflets = [[0, 15, 2.5], [-26, 13.5, 2.3], [26, 13.5, 2.3], [-52, 11, 2.1], [52, 11, 2.1], [-78, 7.6, 1.9], [78, 7.6, 1.9]];
+    const trace = (stroke) => {
+      for (const [deg, len, w] of leaflets) {
+        ctx.save(); ctx.rotate(deg * Math.PI / 180); ctx.beginPath(); ctx.moveTo(0, 0);
+        ctx.quadraticCurveTo(w * 1.7, -len * 0.5, 0, -len);
+        ctx.quadraticCurveTo(-w * 1.7, -len * 0.5, 0, 0);
+        if (stroke) ctx.stroke(); else ctx.fill();
+        ctx.restore();
+      }
+    };
+    ctx.strokeStyle = 'rgba(18,34,10,0.95)'; ctx.lineWidth = 2; trace(true);
+    ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(0, 6.5); ctx.stroke();
+    ctx.fillStyle = C.blazeGreenBright; trace(false);
+    ctx.strokeStyle = C.blazeGreen; ctx.lineWidth = 1.4; ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(0, 6.5); ctx.stroke();
+  }
+
+  // FUEL pickup: battered metal jerry can, faded red/burnt orange, stamped X, handle + cap.
+  function drawJerryCan(ctx) {
+    ctx.fillStyle = 'rgba(201,112,44,0.2)';
+    ctx.beginPath(); ctx.arc(0, 0, 15.5, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = 'rgba(0,0,0,0.35)';
+    ctx.beginPath(); ctx.ellipse(1, 11.5, 9, 2.6, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.lineJoin = 'round';
+    ctx.strokeStyle = '#1b100c'; ctx.lineWidth = 3.2; rr(ctx, -6, -13, 12, 7, 2); ctx.stroke();
+    ctx.strokeStyle = C.chromeDark; ctx.lineWidth = 1.2; rr(ctx, -6, -13, 12, 7, 2); ctx.stroke();
+    ctx.fillStyle = '#2a1a12'; ctx.fillRect(5, -12, 5, 4);
+    ctx.fillStyle = '#a9452a'; ctx.strokeStyle = '#1b100c'; ctx.lineWidth = 1.8;
+    rr(ctx, -9.5, -8, 19, 20, 2.5); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = 'rgba(255,196,140,0.16)'; ctx.fillRect(-8.2, -6.8, 3, 17.6);
+    ctx.fillStyle = 'rgba(0,0,0,0.2)'; ctx.fillRect(-8.2, 8.4, 16.4, 2.8);
+    ctx.strokeStyle = 'rgba(30,12,8,0.75)'; ctx.lineWidth = 1.9;
+    ctx.beginPath(); ctx.moveTo(-5, -4); ctx.lineTo(5, 8); ctx.moveTo(5, -4); ctx.lineTo(-5, 8); ctx.stroke();
+    ctx.strokeStyle = 'rgba(255,190,140,0.3)'; ctx.lineWidth = 0.8;
+    ctx.beginPath(); ctx.moveTo(-4.2, -4); ctx.lineTo(5.8, 8); ctx.moveTo(5.8, -4); ctx.lineTo(-4.2, 8); ctx.stroke();
+    ctx.fillStyle = 'rgba(233,223,196,0.35)'; ctx.fillRect(4, -6, 2.2, 1.4);
+  }
+
+  return { drawPlayer, drawTraffic, drawRival, drawUFO, drawBeam, drawBlazeLeaf, drawJerryCan, rr };
 })();

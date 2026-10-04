@@ -31,6 +31,7 @@ B420.Utils = {
     const sec = Math.floor(s % 60);
     return `${m}:${sec.toString().padStart(2, '0')}`;
   },
+  pad6(n) { return String(Math.max(0, Math.floor(Number(n) || 0))).padStart(6, '0'); },
   easeOutBack(t) {
     const c1 = 1.70158, c3 = c1 + 1;
     return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2);
@@ -40,39 +41,38 @@ B420.Utils = {
 };
 
 B420.Storage = {
-  // Legacy key name kept on purpose so existing saved best scores survive the Route 420 rename.
+  // Legacy key name kept on purpose so existing saved scores survive the Route 420 rename.
   KEY: 'burnout420_save_v1',
+  _num(v) { v = Number(v); return Number.isFinite(v) && v > 0 ? Math.floor(v) : 0; },
   load() {
     try {
-      const raw = localStorage.getItem(this.KEY);
-      if (!raw) return { bestScore: 0, longestRun: 0, highestHeatTier: 1 };
-      const data = JSON.parse(raw);
+      const data = JSON.parse(localStorage.getItem(this.KEY));
       return {
-        bestScore: data.bestScore || 0,
-        longestRun: data.longestRun || 0,
-        highestHeatTier: data.highestHeatTier || 1
+        bestScore: this._num(data.bestScore),
+        longestRun: this._num(data.longestRun),
+        highestHeatTier: Math.max(1, this._num(data.highestHeatTier))
       };
     } catch (e) {
-      return { bestScore: 0, longestRun: 0, highestHeatTier: 1 };
+      return { bestScore: 0, longestRun: 0, highestHeatTier: 1 }; // missing/corrupt => HI 000000
     }
   },
   save(data) {
-    try {
-      localStorage.setItem(this.KEY, JSON.stringify(data));
-      return true;
-    } catch (e) {
-      return false;
-    }
+    try { localStorage.setItem(this.KEY, JSON.stringify(data)); return true; } catch (e) { return false; }
+  },
+  // Live high-score write (never lowers the stored value).
+  setHi(v) {
+    const data = this.load();
+    v = this._num(v);
+    if (v > data.bestScore) { data.bestScore = v; this.save(data); }
+    return data.bestScore;
   },
   updateBest(result) {
     const data = this.load();
     let changed = false;
-    let isNewBest = false;
-    if (result.score > data.bestScore) { data.bestScore = result.score; changed = true; isNewBest = true; }
+    if (result.score > data.bestScore) { data.bestScore = result.score; changed = true; }
     if (result.time > data.longestRun) { data.longestRun = result.time; changed = true; }
-    if (result.maxHeatTier > (data.highestHeatTier || 1)) { data.highestHeatTier = result.maxHeatTier; changed = true; }
+    if (result.maxHeatTier > data.highestHeatTier) { data.highestHeatTier = result.maxHeatTier; changed = true; }
     if (changed) this.save(data);
-    data.isNewBest = isNewBest;
     return data;
   }
 };

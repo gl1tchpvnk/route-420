@@ -20,6 +20,7 @@ B420.Renderer = class Renderer {
     const vw = window.visualViewport ? window.visualViewport.width : window.innerWidth;
     // Touch/narrow screens: full-bleed portrait game. Desktop: ~95% height, capped width.
     const narrow = !!(window.matchMedia && window.matchMedia(B420.CONFIG.NARROW_MQ).matches);
+    this.narrow = narrow;
     const maxH = narrow ? vh : vh * 0.95;
     const maxW = narrow ? vw : Math.min(vw - 16, 760);
     let cssH = maxH;
@@ -41,9 +42,9 @@ B420.Renderer = class Renderer {
 
   addShake(amount) { this.shake = Math.min(1, this.shake + amount); }
 
-  drawBackground(dt, scrollSpeed, movingLinesActive) {
+  drawBackground(dt, scrollSpeed, movingLinesActive, trailAlpha) {
     const ctx = this.ctx;
-    ctx.fillStyle = B420.COLORS.asphaltDark;
+    ctx.fillStyle = trailAlpha ? `rgba(32,30,26,${trailAlpha})` : B420.COLORS.asphaltDark;
     ctx.fillRect(0, 0, this.width, this.height);
 
     const laneW = this.laneWidth();
@@ -92,6 +93,40 @@ B420.Renderer = class Renderer {
     grad.addColorStop(0, `rgba(120,160,70,${0.05 * strength})`);
     grad.addColorStop(0.5, `rgba(120,180,70,${0.22 * strength})`);
     grad.addColorStop(1, `rgba(120,160,70,${0.12 * strength})`);
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, this.width, this.height);
+  }
+
+  // Player Y: a little higher on touch/narrow screens so the car clears the controls.
+  playerY() {
+    return this.height * (this.narrow ? B420.CONFIG.PLAYER_Y_FRACTION_NARROW : B420.CONFIG.PLAYER_Y_FRACTION);
+  }
+
+  // FUEL: sparse cream speed streaks hugging the road edges (never over the lanes).
+  drawFuelStreaks(level) {
+    const ctx = this.ctx;
+    ctx.save();
+    ctx.strokeStyle = 'rgba(233,223,196,' + (0.22 * level).toFixed(3) + ')';
+    ctx.lineWidth = 1.5;
+    for (let i = 0; i < 10; i++) {
+      const off = 9 + ((i * 13) % 16);
+      const x = i % 2 ? this.width - off : off;
+      const y = ((this.time * (700 + (i % 3) * 160) + i * 83) % (this.height + 80)) - 40;
+      ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x, y + 30 + (i % 3) * 10); ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  // Route 420 slowdown event: light green edge-glow, layered under the
+  // normal vignette. Kept subtle and edge-only so it never washes the road.
+  drawSlowdownVignette(strength) {
+    const ctx = this.ctx;
+    const grad = ctx.createRadialGradient(
+      this.width / 2, this.height / 2, this.height * 0.3,
+      this.width / 2, this.height / 2, this.height * 0.7
+    );
+    grad.addColorStop(0, 'rgba(120,200,110,0)');
+    grad.addColorStop(1, `rgba(110,190,100,${strength})`);
     ctx.fillStyle = grad;
     ctx.fillRect(0, 0, this.width, this.height);
   }

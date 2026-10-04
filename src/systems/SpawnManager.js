@@ -36,8 +36,10 @@ B420.SpawnManager = class SpawnManager {
     return occ;
   }
 
-  chooseSafeLane(vehicles) {
+  chooseSafeLane(vehicles, pickups) {
     const occ = this.occupiedLanesNearTop(vehicles);
+    // a jerry can still near the top reserves its lane, so traffic never spawns right on top of it
+    for (const p of pickups || []) if (p.kind === 'fuel' && !p.collected && p.y < 170) occ.add(p.lane);
     const free = [];
     for (let i = 0; i < B420.CONFIG.LANES; i++) if (!occ.has(i)) free.push(i);
     if (free.length === 0) return null; // no safe lane right now — skip this spawn
@@ -45,13 +47,30 @@ B420.SpawnManager = class SpawnManager {
     return B420.Utils.choice(free);
   }
 
-  update(dt, elapsed, vehicles) {
-    const result = { spawnType: null, spawnLane: null, spawnPickup: false, pickupLane: null };
+  resetFuelTimer() {
+    this.fuelTimer = B420.Utils.randRange(B420.CONFIG.FUEL_SPAWN_MIN, B420.CONFIG.FUEL_SPAWN_MAX);
+  }
+
+  // Jerry can lane: only lanes with no traffic near the top and no other pickup just spawned,
+  // so a can is never dropped into traffic. Taking it (and the extra speed) stays the player's choice.
+  chooseFuelLane(vehicles, pickups, avoidLane) {
+    const free = [];
+    for (let l = 0; l < B420.CONFIG.LANES; l++) {
+      if (l === avoidLane) continue; // a car spawning this very tick
+      const busy = vehicles.some(v => !v.dead && (v.lane === l || (v.laneT < 1 && v.laneFrom === l)) && v.y < 260)
+        || pickups.some(p => p.lane === l && p.y < 140);
+      if (!busy) free.push(l);
+    }
+    return free.length ? B420.Utils.choice(free) : null;
+  }
+
+  update(dt, elapsed, vehicles, pickups) {
+    const result = { spawnType: null, spawnLane: null, spawnPickup: false, pickupLane: null, spawnFuel: false, fuelLane: null };
 
     this.spawnTimer -= dt;
     if (this.spawnTimer <= 0) {
       this.spawnTimer = this.spawnInterval(elapsed);
-      const lane = this.chooseSafeLane(vehicles);
+      const lane = this.chooseSafeLane(vehicles, pickups);
       if (lane !== null) {
         let type = this.pickType(elapsed);
         if (type === 'cop' && elapsed < 30) type = 'sedan'; // cops don't show up immediately
@@ -65,6 +84,14 @@ B420.SpawnManager = class SpawnManager {
       this.pickupTimer = B420.Utils.randRange(B420.CONFIG.PICKUP_INTERVAL_MIN, B420.CONFIG.PICKUP_INTERVAL_MAX);
       result.spawnPickup = true;
       result.pickupLane = B420.Utils.randInt(0, B420.CONFIG.LANES - 1);
+    }
+
+    if (this.fuelTimer === undefined) this.resetFuelTimer();
+    this.fuelTimer -= dt;
+    if (this.fuelTimer <= 0 && elapsed >= B420.CONFIG.FUEL_MIN_ELAPSED) {
+      const lane = this.chooseFuelLane(vehicles, pickups || [], result.spawnLane);
+      if (lane !== null) { result.spawnFuel = true; result.fuelLane = lane; this.resetFuelTimer(); }
+      else this.fuelTimer = 1.2;
     }
 
     return result;

@@ -21,9 +21,14 @@ B420.GameState = class GameState {
     this.crashPhaseTimer = 0;
     this.crashing = false;
     this.lastResult = null;
+    this.hi = this.save.bestScore;   // live HI (single source: ScoreSystem score vs stored best)
+    this.hiAtStart = this.hi;
+    this._hiDirty = false;
+    this._hiSavedAt = 0;
   }
 
   start() {
+    this.save = B420.Storage.load();
     this.reset();
     this.state = B420.STATES.PLAYING;
   }
@@ -33,6 +38,20 @@ B420.GameState = class GameState {
   togglePause() {
     if (this.state === B420.STATES.PLAYING && !this.crashing) this.pause();
     else if (this.state === B420.STATES.PAUSED) this.resume();
+  }
+
+  // Live high score: follows SCORE immediately, persisted right away (throttled ~5/s, flushed on exit).
+  syncHi() {
+    const s = Math.floor(this.score);
+    if (s > this.hi) { this.hi = s; this._hiDirty = true; }
+  }
+  flushHi(force) {
+    if (!this._hiDirty) return;
+    const now = performance.now();
+    if (!force && now - this._hiSavedAt < 200) return;
+    this._hiSavedAt = now;
+    this._hiDirty = false;
+    this.save.bestScore = B420.Storage.setHi(this.hi);
   }
 
   beginCrash() {
@@ -51,9 +70,11 @@ B420.GameState = class GameState {
       nearMisses: this.nearMisses,
       blazeModesUsed: this.blazeModesUsed,
       events420Survived: this.events420Survived,
-      escalationStage: this.escalationStage
+      escalationStage: this.escalationStage,
+      newRecord: Math.floor(this.score) > this.hiAtStart && Math.floor(this.score) > 0
     };
     this.save = B420.Storage.updateBest(result);
+    this.hi = Math.max(this.hi, this.save.bestScore);
     this.lastResult = result;
   }
 

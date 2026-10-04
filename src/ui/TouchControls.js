@@ -40,6 +40,7 @@ B420.TouchControls = class TouchControls {
   setBlaze(fraction, ready) {
     this.refs.blaze.style.setProperty('--p', String(fraction));
     this.refs.blaze.classList.toggle('ready', ready);
+    this.refs.blaze.dataset.state = ready ? 'ready' : (fraction > 0.001 ? 'charging' : 'empty');
     this.refs.blaze.setAttribute('aria-disabled', ready ? 'false' : 'true');
   }
 

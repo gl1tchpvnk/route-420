@@ -11,7 +11,7 @@ B420.Screens = class Screens {
         <p class="tagline">drive stupid.</p>
         <button class="btn btn-primary" data-el="playBtn">PLAY</button>
         <button class="btn btn-ghost" data-el="howBtn">HOW TO DRIVE</button>
-        <div class="best-score" data-el="bestScore">BEST SCORE 0</div>
+        <div class="best-score" data-el="bestScore">HI 000000</div>
         <div class="how-to-drive" data-el="howPanel">
           <p>LEFT / RIGHT</p>
           <p>DON'T HIT SHIT</p>
@@ -28,7 +28,7 @@ B420.Screens = class Screens {
     this.resultsEl.innerHTML = `
       <div class="results-inner">
         <h2 class="run-over">RUN OVER</h2>
-        <div class="score-hero"><span class="score-hero-label">SCORE</span><span class="score-hero-value" data-el="scoreHero">0</span></div>
+        <div class="score-hero"><span class="score-hero-label">SCORE</span><span class="score-hero-value" data-el="scoreHero">0</span><span class="new-record" data-el="newRecord">NEW HIGH SCORE</span></div>
         <p class="run-summary-line" data-el="summaryLine"></p>
         <div class="stat-grid" data-el="statGrid"></div>
         <button class="btn btn-primary" data-el="retryBtn">RETRY</button>
@@ -63,7 +63,7 @@ B420.Screens = class Screens {
 
   showMenu(save) {
     this.refs.howPanel.classList.remove('show');
-    this.refs.bestScore.textContent = 'BEST SCORE ' + Math.floor(save.bestScore).toLocaleString();
+    this.refs.bestScore.textContent = 'HI ' + B420.Utils.pad6(save.bestScore);
     this.menuEl.classList.add('show');
     this.resultsEl.classList.remove('show');
   }
@@ -72,18 +72,17 @@ B420.Screens = class Screens {
 
   showResults(gameState) {
     const r = gameState.lastResult;
+    const hi = Math.max(gameState.save.bestScore, r.score);
     this.refs.scoreHero.textContent = r.score.toLocaleString();
-    const stats = [
-      ['BEST', gameState.save.bestScore.toLocaleString()],
-      ['TIME', B420.Utils.formatTime(r.time)],
-      ['MAX HEAT', 'x' + r.maxHeatTier],
-      ['NEAR MISSES', r.nearMisses],
-      ['BLAZE MODES', r.blazeModesUsed],
-      ['420 EVENTS', r.events420Survived]
-    ];
-    this.refs.statGrid.innerHTML = stats.map(([label, value]) =>
-      `<div class="stat"><span class="stat-label">${label}</span><span class="stat-value">${value}</span></div>`
-    ).join('');
+    this.refs.newRecord.classList.remove('show');
+    void this.refs.newRecord.offsetWidth;
+    this.refs.newRecord.classList.toggle('show', !!r.newRecord);
+    const cell = ([label, value]) => `<div class="stat"><span class="stat-label">${label}</span><span class="stat-value">${value}</span></div>`;
+    const primary = [['HI', hi.toLocaleString()], ['TIME', B420.Utils.formatTime(r.time)], ['MAX HEAT', 'x' + r.maxHeatTier]];
+    const secondary = [['NEAR MISSES', r.nearMisses], ['BLAZE MODES', r.blazeModesUsed], ['420 EVENTS', r.events420Survived]];
+    this.refs.statGrid.innerHTML =
+      '<div class="stat-row primary">' + primary.map(cell).join('') + '</div>' +
+      '<div class="stat-row secondary">' + secondary.map(cell).join('') + '</div>';
     this.refs.summaryLine.textContent = this._pickSummary(r, gameState.save);
     this.resultsEl.classList.add('show');
   }
@@ -92,7 +91,7 @@ B420.Screens = class Screens {
 
   _pickSummary(r, save) {
     const lines = [];
-    if (r.score >= save.bestScore && save.isNewBest) lines.push(['NEW BEST. UNFORTUNATELY.', 10]);
+    if (r.newRecord) lines.push(['NEW BEST. UNFORTUNATELY.', 10]);
     if (r.maxHeatTier >= 5 && r.nearMisses >= 8) lines.push(["WELL. THAT'S FUCKED.", 9]);
     if (r.nearMisses >= 10) lines.push(['EXTREMELY POOR DECISION MAKING', 8]);
     if (r.time >= B420.CONFIG.FIRST_420_TIME) lines.push(['YOU SURVIVED 4:20. TAKE A BREAK.', 8]);
