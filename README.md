@@ -1,23 +1,38 @@
-# BURNOUT 4:20
+# ROUTE 420
 
-drive stupid.
+A fast arcade driving game about hot rods, near misses, HEAT, and BLAZE.
 
-A fast, funny, slightly filthy arcade driving game. Lane-switch through traffic, chase near misses for HEAT multipliers, fill BLAZE for a chaotic power mode, and survive the random event that hits every run at 4:20.
+Drive recklessly — near misses and tight passes build HEAT, multiplying your risk bonuses up to x5. Collect green leaf pickups to fill the BLAZE meter, then pop it for a short burst of chaos and bonus score. Grab a jerry can for a few seconds of FUEL: a faster road and x1.5 scoring, with collisions fully live. Your best score is kept on this device as HI. Survive to 4:20 and Route 420 fires one randomized event that flips the road on its head for the rest of the run.
 
-## Requirements
+## Controls
 
-Node.js 16+ (only used to run a zero-dependency static file server — no build tools, no npm packages).
+**Desktop**
+- `← / A` — left
+- `→ / D` — right
+- `SPACE / ↑` — BLAZE (once the meter's full)
+- `P / ESC` — pause
 
-## Installation
+**Mobile**
+- Touch controls for LEFT, RIGHT, and BLAZE, plus PAUSE/HOME buttons in the HUD.
 
-```
+## Run locally
+
+Requires Node.js 16+ (only to run a zero-dependency static file server — no build tools, no npm packages).
+
+```bash
 npm install
 npm run dev
 ```
 
-Then open the printed local URL (defaults to `http://localhost:5173`).
+Then open the printed local URL (defaults to `http://localhost:5173`). `npm install` is a no-op — the project has zero dependencies — it's there for a normal-feeling workflow.
 
-There's nothing to actually install — `npm install` is a no-op since the project has zero dependencies. It's included for a normal-feeling workflow.
+## Checks
+
+```
+npm test
+```
+
+Runs the permanent project checks (source/syntax, production build, controls, BLAZE/FUEL wiring, high-score persistence, spawn reset). Node only, no dependencies.
 
 ## Production build
 
@@ -26,12 +41,6 @@ npm run build
 ```
 
 This project ships no bundler — everything is plain HTML/CSS/JS loaded via `<script>` tags. `npm run build` just copies the static source into `dist/`, ready to deploy as-is.
-
-## Controls
-
-**Desktop:** Arrow keys or A/D to change lanes, Space for BLAZE MODE (when the meter is full), P or Esc to pause.
-
-**Mobile:** Large left/right buttons at the bottom, BLAZE button in the middle, pause button top-right.
 
 ## Debug mode
 
@@ -69,7 +78,7 @@ There's no framework and no bundler — every file attaches its classes to a sha
 
 This is a static site, so any static host works with no build configuration:
 
-- **GitHub Pages:** Settings → Pages → deploy from the `main` branch, root folder. No build step needed since everything is already plain files.
+- **GitHub Pages:** Settings → Pages → deploy from the `main` branch, root folder. No build step needed since everything is already plain files. All paths are relative, so it also works from a project subpath such as `https://<user>.github.io/route-420/`.
 - **Vercel / Netlify:** Import the repo, leave the build command empty (or `npm run build`) and set the output/publish directory to `dist` (or the repo root if you skip building).
 
 ## Notes

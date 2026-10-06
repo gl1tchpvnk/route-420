@@ -22,7 +22,7 @@ B420.TrafficManager = class TrafficManager {
     this.rivalCooldown = B420.CONFIG.RIVAL_MIN_SURVIVAL;
     this.rivalActive = false;
     this.hotRodSkinActive = false;
-    this.spawner.spawnTimer = B420.CONFIG.SPAWN_INTERVAL_START;
+    this.spawner.reset();
   }
 
   currentScrollSpeed(elapsed) {
@@ -34,7 +34,7 @@ B420.TrafficManager = class TrafficManager {
     opts = opts || {};
     const scrollSpeed = this.currentScrollSpeed(elapsed) * (opts.speedMult != null ? opts.speedMult : 1);
 
-    const plan = this.spawner.update(dt, elapsed, this.vehicles);
+    const plan = this.spawner.update(dt, elapsed, this.vehicles, this.pickups);
     if (plan.spawnType) {
       const type = opts.forceType || plan.spawnType;
       const nv = new B420.Vehicle(type, plan.spawnLane, this.renderer, -60);
@@ -48,7 +48,14 @@ B420.TrafficManager = class TrafficManager {
       });
     }
 
-    for (const v of this.vehicles) v.update(dt, scrollSpeed, player);
+    if (plan.spawnFuel && !opts.suppressBlazePickup) {
+      this.pickups.push({
+        kind: 'fuel', lane: plan.fuelLane,
+        x: this.renderer.laneX(plan.fuelLane), y: -30, w: 22, h: 22, collected: false
+      });
+    }
+
+    for (const v of this.vehicles) v.update(dt, scrollSpeed, player, this.vehicles);
     this.vehicles = this.vehicles.filter(v => !v.dead && !v.abducted && v.y < this.renderer.height + 80);
 
     for (const p of this.pickups) {
@@ -90,18 +97,9 @@ B420.TrafficManager = class TrafficManager {
       ctx.save();
       ctx.translate(p.x, p.y);
       if (p.kind === 'blaze') {
-        const pulse = 1 + Math.sin(t * 6) * 0.08;
-        ctx.scale(pulse, pulse);
-        ctx.fillStyle = 'rgba(180,220,120,0.35)';
-        ctx.beginPath(); ctx.arc(0, 0, 15, 0, Math.PI * 2); ctx.fill();
-        ctx.fillStyle = B420.COLORS.blazeGreenBright;
-        ctx.beginPath();
-        ctx.moveTo(0, -9);
-        ctx.bezierCurveTo(7, -3, 6, 5, 0, 10);
-        ctx.bezierCurveTo(-6, 5, -7, -3, 0, -9);
-        ctx.fill();
-        ctx.fillStyle = B420.COLORS.blazeGreen;
-        ctx.beginPath(); ctx.ellipse(0, 3, 2.5, 5, 0, 0, Math.PI * 2); ctx.fill();
+        B420.VehicleArt.drawBlazeLeaf(ctx, t);
+      } else if (p.kind === 'fuel') {
+        B420.VehicleArt.drawJerryCan(ctx);
       } else {
         ctx.font = '22px sans-serif';
         ctx.textAlign = 'center';

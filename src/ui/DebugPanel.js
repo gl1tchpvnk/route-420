@@ -25,6 +25,7 @@ B420.DebugPanel = class DebugPanel {
       <button data-act="sp-grandma">Grandma</button>
       <button data-act="sp-cop">Cop</button>
       <button data-act="rival">Force Rival</button>
+      <button data-act="fuel">Drop jerry can</button>
       <div class="debug-sub">Other</div>
       <button data-act="heat">Max HEAT</button>
       <button data-act="score">+5000 score</button>
@@ -50,6 +51,7 @@ B420.DebugPanel = class DebugPanel {
     else if (act === 'skip420') this.hooks.onSkipTo420 && this.hooks.onSkipTo420();
     else if (act.startsWith('sp-')) this.hooks.onForceSpawn && this.hooks.onForceSpawn(act.slice(3));
     else if (act === 'rival') this.hooks.onForceRival && this.hooks.onForceRival();
+    else if (act === 'fuel') this.hooks.onForceFuel && this.hooks.onForceFuel();
     else if (act === 'heat') this.hooks.onMaxHeat && this.hooks.onMaxHeat();
     else if (act === 'score') this.hooks.onAddScore && this.hooks.onAddScore(5000);
   }

@@ -61,6 +61,7 @@ B420.AudioManager = class AudioManager {
   ufoBeam() { this.tone(880, 0.5, 'sine', 0.18, 220); }
   munchiePickup() { this.tone(500, 0.07, 'triangle', 0.25, 760); }
   results() { [0, 120, 240].forEach((d, i) => this.later(() => this.tone(330 + i * 110, 0.2, 'square', 0.24), d)); }
+  fuelHit() { this.tone(130, 0.28, 'sawtooth', 0.32, 340); }
   uiTap() { this.tone(420, 0.04, 'square', 0.2); }
 
   startEngine() {
@@ -77,7 +78,7 @@ B420.AudioManager = class AudioManager {
 
   updateEngine(speedFactor) {
     if (!this.engineOsc) return;
-    const f = 52 + B420.Utils.clamp(speedFactor, 0, 1) * 65;
+    const f = 52 + B420.Utils.clamp(speedFactor, 0, 1.4) * 65;
     this.engineOsc.frequency.setTargetAtTime(f, this.ctx.currentTime, 0.09);
   }
 

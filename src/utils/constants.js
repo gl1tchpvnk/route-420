@@ -1,4 +1,4 @@
-// BURNOUT 4:20 — global config, tuning values, palette
+// ROUTE 420 — global config, tuning values, palette
 window.B420 = window.B420 || {};
 
 B420.CONFIG = {
@@ -6,6 +6,7 @@ B420.CONFIG = {
   LANE_CHANGE_MS: 150,
   BLAZE_LANE_CHANGE_MS: 230,
   PLAYER_Y_FRACTION: 0.76,
+  PLAYER_Y_FRACTION_NARROW: 0.72, // touch/narrow: extra breathing room above the controls
 
   BASE_SCROLL_SPEED: 250,
   MAX_SCROLL_SPEED: 560,
@@ -67,7 +68,35 @@ B420.CONFIG = {
 
   DANGER_ZONE_Y: 150,
 
-  DEBUG_KEY: 'debug'
+  TRAFFIC_FOLLOW_GAP: 150,
+  TRAFFIC_BRAKE_GAP: 60,
+  TRAFFIC_LANE_COOLDOWN: 2.6,
+  TRAFFIC_CHECK_AHEAD: 85,
+  TRAFFIC_CHECK_BEHIND: 55,
+  TRAFFIC_TELEGRAPH_S: 0.2,
+  TRAFFIC_LANECHANGE_S: 0.3,
+  SLOWDOWN_TRAIL_ALPHA: 0.42,
+  SLOWDOWN_VIGNETTE_ALPHA: 0.16,
+
+  FUEL_DURATION: 4.5,
+  FUEL_EXTEND: 1.0,        // re-collect while active: extend modestly...
+  FUEL_MAX_DURATION: 6.5,  // ...but never beyond this cap
+  FUEL_SPEED_BOOST: 0.22,  // single bounded modifier (never multiplied per can)
+  FUEL_SCORE_MULT: 1.5,
+  FUEL_BLAZE_COMBINED: 1.08, // FUEL + BLAZE together: modestly above normal speed
+  FUEL_RAMP_UP: 0.3,
+  FUEL_RAMP_DOWN: 0.9,
+  FUEL_SPAWN_MIN: 20,
+  FUEL_SPAWN_MAX: 32,
+  FUEL_MIN_ELAPSED: 14,
+
+  REACTION_BASE: 70,
+  REACTION_TIME: 0.55, // reactionDistance = base + scrollSpeed * this
+
+  DEBUG_KEY: 'debug',
+
+  // Touch-capable or narrow screens: full-bleed game layout + raised car (layout only; controls are always shown)
+  NARROW_MQ: '(max-width: 760px), (any-pointer: coarse)'
 };
 
 B420.COLORS = {

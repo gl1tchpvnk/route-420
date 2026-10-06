@@ -14,12 +14,13 @@ B420.Player = class Player {
     this.stage = 1;
     this.wobble = 0;
     this.x = renderer.laneX(this.lane);
-    this.y = renderer.height * B420.CONFIG.PLAYER_Y_FRACTION;
+    this.y = renderer.playerY();
     this.blazeMult = 1;
+    this.fuel = 0; // FUEL ease level 0..1 (drives flames/shake/glow only)
   }
 
   onResize() {
-    this.y = this.renderer.height * B420.CONFIG.PLAYER_Y_FRACTION;
+    this.y = this.renderer.playerY();
     if (this.laneChangeT >= 1) this.x = this.renderer.laneX(this.lane);
   }
 
@@ -67,6 +68,13 @@ B420.Player = class Player {
     ctx.save();
     ctx.translate(this.x, this.y);
     if (rotation) ctx.rotate(rotation);
+    if (this.fuel > 0.02) { // very mild warm accent under the car
+      const g = ctx.createRadialGradient(0, 8, 4, 0, 8, 38);
+      g.addColorStop(0, 'rgba(255,140,50,' + (0.22 * this.fuel).toFixed(3) + ')');
+      g.addColorStop(1, 'rgba(255,140,50,0)');
+      ctx.fillStyle = g;
+      ctx.fillRect(-40, -30, 80, 90);
+    }
     const color = blazeActive ? B420.COLORS.olive : B420.COLORS.red;
     B420.VehicleArt.drawPlayer(ctx, this, color, B420.COLORS.flame1);
     ctx.restore();
