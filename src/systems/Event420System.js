@@ -1,6 +1,5 @@
-// Fires a randomized event at 4:20 and every FIRST_420_TIME afterward from
-// then on (so :08:40, :13:00, ...). Built as a registry so more events can be
-// added later without touching the trigger logic.
+// Existing event effects (green fog, hot-rod swap, UFO, munchies, moving lines). Events no longer fire on a
+// fixed clock: 420 CHAOS (ChaosSystem) decides when to launch one. Pass 1 launches the UFO event only.
 window.B420 = window.B420 || {};
 
 B420.Event420System = class Event420System {
@@ -19,7 +18,6 @@ B420.Event420System = class Event420System {
   }
 
   reset() {
-    this.nextTriggerTime = B420.CONFIG.FIRST_420_TIME;
     this.active = null; // {type, name, duration, timer, ...eventState}
     this.announcePhase = 0; // ms remaining showing "4:20" / name banner
     this.announceStep = 0; // 0 = "4:20" big, 1 = event name
@@ -27,12 +25,12 @@ B420.Event420System = class Event420System {
     this.munchieTimer = 0;
     this.survivedCount = 0;
     this.pendingSurvivedCredit = false;
-    this.fired = false; // exactly one 4:20 event per run
   }
 
-  onDebugSkipNear420(gameStateElapsedSetter) {
-    gameStateElapsedSetter(Math.max(0, this.nextTriggerTime - 2));
-  }
+  isBusy() { return !!this.active || this.announcePhase > 0; }
+
+  // Pass 1: one existing event only (UFO).
+  launchChaosEvent() { this.forceTrigger(B420.EVENTS.UFO); }
 
   forceTrigger(type) {
     const def = this.registry.find(e => e.type === type) || B420.Utils.choice(this.registry);
@@ -40,7 +38,6 @@ B420.Event420System = class Event420System {
   }
 
   _begin(def) {
-    this.fired = true;
     this._endActive();
     this.active = { ...def, timer: def.duration };
     this.announceStep = 0;
@@ -60,11 +57,6 @@ B420.Event420System = class Event420System {
   }
 
   update(dt, elapsed, player, vehicles) {
-    if (!this.active && !this.fired && elapsed >= this.nextTriggerTime) {
-      const def = B420.Utils.choice(this.registry);
-      this._begin(def);
-    }
-
     if (this.announcePhase > 0) {
       this.announcePhase -= dt * 1000;
       if (this.announcePhase <= 0 && this.announceStep === 0) {

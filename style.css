@@ -130,13 +130,11 @@ canvas#game-canvas {
 .blaze-fill { background: linear-gradient(90deg, var(--blaze-green), var(--blaze-green-bright)); }
 .blaze-fill.ready { animation: blazePulse 0.7s ease-in-out infinite; }
 @keyframes blazePulse { 0%,100% { filter: brightness(1); } 50% { filter: brightness(1.6); } }
-.hud-next420 { flex: none; padding-left: 8px; border-left: 1px solid rgba(203,191,156,0.18); gap: 6px; }
-.hud-next420.t20 .hud-label, .hud-next420.t20 .hud-value { color: var(--burnt-orange); }
-.hud-next420.t10 { animation: blazePulse 0.9s ease-in-out infinite; }
-.hud-next420.t10 .hud-label, .hud-next420.t10 .hud-value, .hud-next420.t4 .hud-label, .hud-next420.t4 .hud-value { color: var(--flame1); }
-.hud-next420.t4 .hud-value { color: var(--red); }
-.hud-next420.tick { animation: tickPop 0.3s ease-out; }
-@keyframes tickPop { 0% { transform: scale(1.25); } 100% { transform: scale(1); } }
+.hud-chaos { flex: none; width: 112px; padding-left: 8px; border-left: 1px solid rgba(203,191,156,0.18); }
+.hud-chaos .hud-label { white-space: nowrap; }
+.chaos-fill { background: linear-gradient(90deg, var(--burnt-orange), var(--blaze-green-bright)); }
+.hud-chaos.armed .hud-label { color: var(--blaze-green-bright); animation: blazePulse 0.9s ease-in-out infinite; }
+.hud-chaos.armed .chaos-fill { filter: brightness(1.25); }
 .hud.blaze-active { filter: saturate(1.5) hue-rotate(6deg) contrast(1.08); }
 
 .popup-layer { position: absolute; inset: 0; overflow: hidden; }
@@ -379,6 +377,6 @@ body { position: fixed; inset: 0; width: 100%; }
   #game-frame { border-radius: 0; box-shadow: none; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .blaze-fill.ready, .tc-blaze.ready, .hud-label.ready, .hud-next420.t10 { animation: none; }
+  .blaze-fill.ready, .tc-blaze.ready, .hud-label.ready, .hud-chaos.armed .hud-label { animation: none; }
   .popup, .event-banner, .stage-toast { transition-duration: 0.05s; }
 }

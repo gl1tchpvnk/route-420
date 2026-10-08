@@ -1,5 +1,5 @@
 // DOM-based HUD: one compact instrument cluster on top of the canvas.
-// The 4:20/event readout is a self-contained slot (.hud-next420) so it can be swapped later.
+// The 420 CHAOS readout is a self-contained slot (.hud-chaos).
 window.B420 = window.B420 || {};
 
 B420.HUD = class HUD {
@@ -21,7 +21,7 @@ B420.HUD = class HUD {
         <div class="hud-row hud-row-sys">
           <div class="hud-sys hud-heat"><span class="hud-label">HEAT</span><span class="heat-value" data-el="heatValue">x1</span><div class="meter"><div class="meter-fill heat-fill" data-el="heatFill"></div></div></div>
           <div class="hud-sys hud-blaze"><span class="hud-label" data-el="blazeLabel">BLAZE</span><div class="meter"><div class="meter-fill blaze-fill" data-el="blazeFill"></div></div></div>
-          <div class="hud-sys hud-next420" data-el="next420"><span class="hud-label" data-el="next420Label">4:20 IN</span><span class="hud-value sm" data-el="next420Val">4:20</span></div>
+          <div class="hud-sys hud-chaos" data-el="chaos"><span class="hud-label" data-el="chaosLabel">420 CHAOS</span><div class="meter"><div class="meter-fill chaos-fill" data-el="chaosFill"></div></div></div>
         </div>
       </div>
       <div class="popup-layer" data-el="popups"></div>
@@ -37,7 +37,7 @@ B420.HUD = class HUD {
   bindPause(fn) { this.refs.pauseBtn.addEventListener('click', fn); }
   bindHome(fn) { this.refs.homeBtn.addEventListener('click', fn); }
 
-  update(gameState, heat, blaze, nextEventIn) {
+  update(gameState, heat, blaze, chaos) {
     const r = this.refs;
     r.score.textContent = B420.Utils.pad6(gameState.score);
     r.hi.textContent = B420.Utils.pad6(gameState.hi);
@@ -52,24 +52,9 @@ B420.HUD = class HUD {
     r.blazeLabel.classList.toggle('ready', blaze.ready);
     this.el.classList.toggle('blaze-active', blaze.active);
 
-    const n = r.next420;
-    if (nextEventIn != null) {
-      const sec = Math.ceil(nextEventIn);
-      r.next420Label.textContent = '4:20 IN';
-      r.next420Val.textContent = B420.Utils.formatTime(sec);
-      n.classList.toggle('t20', nextEventIn <= 20 && nextEventIn > 10);
-      n.classList.toggle('t10', nextEventIn <= 10 && nextEventIn > 4);
-      n.classList.toggle('t4', nextEventIn <= 4);
-      if (nextEventIn <= 4) {
-        if (sec !== this._lastTickSec) { this._lastTickSec = sec; n.classList.remove('tick'); void n.offsetWidth; n.classList.add('tick'); }
-      } else {
-        this._lastTickSec = null;
-      }
-    } else {
-      r.next420Label.textContent = '4:20';
-      r.next420Val.textContent = 'SURVIVED';
-      n.classList.remove('t20', 't10', 't4', 'tick');
-    }
+    r.chaosFill.style.width = chaos.chaosValue + '%';
+    r.chaos.classList.toggle('armed', chaos.chaosArmed);
+    r.chaosLabel.textContent = chaos.chaosArmed ? 'ARMED' : '420 CHAOS';
   }
 
   // x/y are canvas pixels; the UI layer is CSS-zoomed (internal width ~400), so convert.

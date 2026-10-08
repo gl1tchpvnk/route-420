@@ -83,6 +83,12 @@ B420.CONFIG = {
   FUEL_MAX_DURATION: 6.5,  // ...but never beyond this cap
   FUEL_SPEED_BOOST: 0.22,  // single bounded modifier (never multiplied per can)
   FUEL_SCORE_MULT: 1.5,
+  CHAOS_AWARD: { nearMiss: 8, tightMiss: 12, thread: 20, rival: 20, blaze: 5 },
+  CHAOS_HEAT_STEP: 0.1,      // HEAT x1..x5 => 1.0 .. 1.4
+  CHAOS_BLAZE_MULT: 1.25,    // while BLAZE is active (FUEL does not multiply CHAOS)
+  CHAOS_PASSIVE_RATE: 0.5,   // per second; never decays
+  CHAOS_SAFE_HOLD: 0.35,     // seconds the road must stay readable before an armed event launches
+  CHAOS_DANGER_AHEAD: 120,   // car this close ahead in the player's lane = immediate danger
   FUEL_BLAZE_COMBINED: 1.08, // FUEL + BLAZE together: modestly above normal speed
   FUEL_RAMP_UP: 0.3,
   FUEL_RAMP_DOWN: 0.9,

@@ -135,5 +135,83 @@ section('spawn reset lifecycle');
   ok('startRun resets traffic manager', /trafficManager\.reset\(\)/.test(fnBody('startRun')));
 }
 
+// ---------- 420 CHAOS (Pass 1) ----------
+section('420 CHAOS logic');
+{
+  const { B420 } = load([...CORE, 'src/entities/Vehicle.js', 'src/systems/ChaosSystem.js'], {});
+  const C = B420.CONFIG, A = C.CHAOS_AWARD, mk = () => new B420.ChaosSystem();
+  ok('ChaosSystem exists, exposes chaosValue/chaosArmed/chaosPercent', typeof B420.ChaosSystem === 'function' && (() => { const c = mk(); return 'chaosValue' in c && 'chaosArmed' in c && 'chaosPercent' in c; })());
+  ok('base awards 8 / 12 / 20 / 20 / 5', A.nearMiss === 8 && A.tightMiss === 12 && A.thread === 20 && A.rival === 20 && A.blaze === 5);
+  let c = mk(); c.award(A.nearMiss, 1, false); ok('near-miss CHAOS added (x1 = 8)', c.chaosValue === 8);
+  c = mk(); c.add(-50); ok('never goes below 0', c.chaosValue === 0);
+  const m = [1, 2, 3, 4, 5].map((t) => +mk().heatMultiplier(t).toFixed(2));
+  ok('HEAT multipliers 1.0/1.1/1.2/1.3/1.4', m.join() === '1,1.1,1.2,1.3,1.4', m.join());
+  c = mk(); c.award(10, 3, false); ok('HEAT x3 applied (10 -> 12)', Math.abs(c.chaosValue - 12) < 1e-9, String(c.chaosValue));
+  c = mk(); c.award(8, 3, true); ok('BLAZE x1.25 stacks with HEAT (8*1.2*1.25 = 12)', Math.abs(c.chaosValue - 12) < 1e-9, String(c.chaosValue));
+  ok('FUEL never multiplies CHAOS (no FUEL input anywhere)', !/fuel/i.test(read('src/systems/ChaosSystem.js')) && !/chaos\.award\([^)]*fuel/i.test(main));
+  c = mk(); c.update(10, true); ok('passive ~0.5/s (10s -> 5)', Math.abs(c.chaosValue - 5) < 1e-9, String(c.chaosValue));
+  c = mk(); c.update(10, false); ok('passive paused when not playing', c.chaosValue === 0);
+  ok('main only ticks passive CHAOS inside the playing update (pause/crash return earlier)', /heat\.update\(dt\);\s*chaos\.update\(dt, true\)/.test(main));
+  c = mk(); c.add(30); const before = c.chaosValue; for (let i = 0; i < 600; i++) c.update(0, true); ok('CHAOS never decays', c.chaosValue === before);
+  c = mk(); c.add(99.9); c.add(50); ok('clamps at 100 and ARMS', c.chaosValue === 100 && c.chaosArmed);
+  c.add(40); ok('armed meter stays full', c.chaosValue === 100 && c.chaosArmed);
+  const ctx = (o) => Object.assign({ playing: true, boxedIn: false, danger: false, eventBusy: false }, o);
+  c = mk(); c.arm();
+  ok('does not launch on the arming frame', c.step(0.016, ctx({ boxedIn: true })) === false);
+  for (const [name, o] of [['boxed in', { boxedIn: true }], ['immediate danger', { danger: true }], ['event active', { eventBusy: true }], ['paused/over', { playing: false }]]) {
+    c = mk(); c.arm(); let fired = false; for (let i = 0; i < 100; i++) fired = fired || c.step(0.05, ctx(o));
+    ok('unsafe delays launch: ' + name, !fired);
+  }
+  c = mk(); c.arm(); ok('readable window waits a short hold first', c.step(0.1, ctx({})) === false);
+  let go = false; for (let i = 0; i < 20 && !go; i++) go = c.step(0.05, ctx({})); ok('readable road launches', go);
+  c.onLaunched(); ok('launch resets CHAOS to 0 and clears ARMED', c.chaosValue === 0 && !c.chaosArmed);
+  c = mk(); c.add(60); c.arm(); c.reset(); ok('reset clears value + ARMED', c.chaosValue === 0 && !c.chaosArmed);
+  c = mk(); c.arm(); c.step(0.2, ctx({})); c.step(0.05, ctx({ danger: true })); ok('hold restarts when the road becomes unsafe', c.step(0.2, ctx({})) === false);
+  const P = { lane: 1, y: 600, h: 56 }, V = (lane, y) => ({ lane, y, laneT: 1, laneFrom: lane, dead: false, abducted: false });
+  ok('road: empty = readable', (() => { const r = mk().assessRoad([], P, 300); return !r.boxedIn && !r.danger; })());
+  ok('road: cars in all three reachable lanes = boxed in', mk().assessRoad([V(0, 560), V(1, 540), V(2, 570)], P, 300).boxedIn);
+  ok('road: car just ahead in own lane = danger', mk().assessRoad([V(1, 520)], P, 300).danger);
+  ok('road: far-ahead car is not danger', !mk().assessRoad([V(1, 100)], P, 300).danger);
+}
+
+section('near-miss paths: normal +8 vs very tight +12');
+{
+  const { B420 } = load([...CORE, 'src/systems/CollisionSystem.js', 'src/systems/ChaosSystem.js'], {});
+  const A = B420.CONFIG.CHAOS_AWARD;
+  const player = { lane: 1, bounds: () => ({ x: 100, y: 580, w: 34, h: 56 }) }; // centre y = 608
+  const pass = (centreY) => {
+    const v = { lane: 2, dead: false, abducted: false, nearMissTriggered: false, bounds: () => ({ x: 200, y: centreY - 27, w: 32, h: 54 }) };
+    return new B420.CollisionSystem().checkNearMisses(0.016, player, [v]).events;
+  };
+  const normal = pass(608 + 20), tight = pass(608 + 3);
+  ok('detector: centre gap ~20 = normal near miss', normal.length === 1 && normal[0].tight === false);
+  ok('detector: centre gap ~3 = very tight near miss', tight.length === 1 && tight[0].tight === true);
+  ok('detector: far car = no near miss', pass(608 + 200).length === 0);
+  // same mapping main.js uses: e.tight ? tightMiss : nearMiss
+  const gain = (ev, tier, blaze) => { const c = new B420.ChaosSystem(); return c.award(ev.tight ? A.tightMiss : A.nearMiss, tier, blaze); };
+  const near = (x) => Math.abs(x - Math.round(x * 10) / 10) < 1e-9;
+  for (const [label, ev, tier, blaze, want] of [
+    ['normal x1', normal[0], 1, false, 8], ['tight x1', tight[0], 1, false, 12],
+    ['normal HEAT x3', normal[0], 3, false, 9.6], ['tight HEAT x3', tight[0], 3, false, 14.4],
+    ['normal BLAZE x1', normal[0], 1, true, 10], ['tight BLAZE x1', tight[0], 1, true, 15]]) {
+    const g = gain(ev, tier, blaze); ok('CHAOS ' + label + ' = +' + want, Math.abs(g - want) < 1e-9 && near(g), String(g));
+  }
+  ok('main maps tight -> tightMiss(12), normal -> nearMiss(8)', /e\.tight \? B420\.CONFIG\.CHAOS_AWARD\.tightMiss : B420\.CONFIG\.CHAOS_AWARD\.nearMiss/.test(main));
+}
+
+section('420 CHAOS wiring + HUD');
+{
+  const hud = read('src/ui/HUD.js'), ev = read('src/systems/Event420System.js'), dbg = read('src/ui/DebugPanel.js'), ci = fs.existsSync(path.join(root, '.github/workflows/ci.yml')) ? read('.github/workflows/ci.yml') : '';
+  ok('420 CHAOS HUD slot + meter exist', /420 CHAOS/.test(hud) && /chaosFill/.test(hud) && /ARMED/.test(hud));
+  ok('old 4:20 countdown HUD is gone', !/4:20 IN|next420|nextEventIn/.test(hud + main) && !/hud-next420/.test(css));
+  ok('old fixed-time trigger removed', !/nextTriggerTime|FIRST_420_TIME/.test(ev + main) && !/skip420|onSkipTo420/.test(dbg + main));
+  ok('armed launch fires the existing UFO event', /launchChaosEvent\(\)\s*\{\s*this\.forceTrigger\(B420\.EVENTS\.UFO\)/.test(ev) && /events\.launchChaosEvent\(\);\s*chaos\.onLaunched\(\)/.test(main));
+  ok('launch waits for readable road + no active event/rival', /chaos\.step\(dt, \{[^}]*boxedIn[^}]*danger[^}]*eventBusy: events\.isBusy\(\) \|\| trafficManager\.rivalActive/.test(main));
+  ok('CHAOS awards wired: near/tight miss, thread, rival, BLAZE pickup', ['tightMiss', 'nearMiss', 'thread', 'rival', 'blaze'].every((k) => new RegExp('chaos\\.award\\([^;]*CHAOS_AWARD\\.' + k).test(main)));
+  ok('CHAOS reset on run start / crash / Home', ['startRun', 'triggerCollision', 'goHome'].every((f) => /chaos\.reset\(\)/.test(fnBody(f))));
+  ok('debug: CHAOS 25/50/99/100, ARM, RESET', ['chaos-25', 'chaos-50', 'chaos-99', 'chaos-100', 'chaos-arm', 'chaos-reset'].every((a) => dbg.includes(a)));
+  ok('CI: push main + PR, Node 24.x, npm test + build only', /branches: \[main\]/.test(ci) && /pull_request/.test(ci) && /24\.x/.test(ci) && /run: npm test/.test(ci) && /run: npm run build/.test(ci) && !/vercel|deploy|lint|coverage/i.test(ci));
+}
+
 console.log('\n' + (fail ? 'FAILED' : 'PASSED') + ': ' + pass + ' checks passed, ' + fail + ' failed');
 process.exit(fail ? 1 : 0);

@@ -17,7 +17,7 @@ B420.Screens = class Screens {
           <p>DON'T HIT SHIT</p>
           <p>DRIVE STUPID FOR MORE POINTS</p>
           <p>SPACE / \u2191 &mdash; BLAZE</p>
-          <p>SURVIVE 4:20</p>
+          <p>FILL 420 CHAOS</p>
           <button class="btn btn-ghost btn-small" data-el="howCloseBtn">GOT IT</button>
         </div>
       </div>

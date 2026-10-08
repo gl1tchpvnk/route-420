@@ -22,6 +22,7 @@
     const heat = new B420.HeatSystem();
     const blaze = new B420.BlazeSystem();
     const fuel = new B420.FuelSystem();
+    const chaos = new B420.ChaosSystem();
     const escalation = new B420.EscalationSystem();
     const score = new B420.ScoreSystem();
     const events = new B420.Event420System(trafficManager, renderer, audio);
@@ -78,6 +79,7 @@
       blaze.reset();
       fuel.reset();
       player.fuel = 0;
+      chaos.reset();
       escalation.reset();
       score.reset();
       events.reset();
@@ -116,6 +118,7 @@
       gameState.abandon();
       fuel.reset();
       player.fuel = 0;
+      chaos.reset();
       audio.stopEngine();
       hud.hideEventBanner();
       particles.clear();
@@ -138,11 +141,13 @@
     screens.refs.pauseHomeBtn.addEventListener('click', goHome);
 
     if (debugMode) {
-      B420.debug = { gameState, player, heat, blaze, score, events, trafficManager, renderer, fuel, hud, roadSpeedMult, setCollision: (v) => { collisionEnabled = v; } };
+      B420.debug = { gameState, player, heat, blaze, score, events, trafficManager, renderer, fuel, hud, roadSpeedMult, chaos, setCollision: (v) => { collisionEnabled = v; } };
       debugPanel = new B420.DebugPanel(uiLayer, {
         onForceBlaze: () => { blaze.meter = B420.CONFIG.BLAZE_MAX; requestBlaze(); },
         onForceEvent: (type) => events.forceTrigger(type),
-        onSkipTo420: () => { gameState.elapsed = Math.max(0, events.nextTriggerTime - 2); },
+        onChaos: (n) => chaos.debugSet(n),
+        onArmChaos: () => chaos.arm(),
+        onResetChaos: () => chaos.reset(),
         onForceSpawn: (type) => {
           trafficManager.vehicles.push(new B420.Vehicle(type, B420.Utils.randInt(0, B420.CONFIG.LANES - 1), renderer, -60));
         },
@@ -163,6 +168,7 @@
       gameState.beginCrash();
       fuel.reset();
       player.fuel = 0;
+      chaos.reset();
       renderer.addShake(1);
       audio.collision();
       audio.stopEngine();
@@ -209,6 +215,7 @@
       fuel.update(dt);
       player.fuel = fuel.level;
       heat.update(dt);
+      chaos.update(dt, true); // passive trickle only while actively playing (pause/crash never reach here)
       audio.updateEngine(B420.Utils.clamp(gameState.elapsed / B420.CONFIG.SPEED_RAMP_SECONDS, 0.15, 1) + fuel.level * 0.3);
 
       const speedMult = roadSpeedMult();
@@ -228,7 +235,12 @@
       if (events.announcePhase > 0) hud.eventBanner(events.announceStep, "WHOA... IT'S SLOWING DOWN");
       else hud.hideEventBanner();
       gameState.events420Survived = events.survivedCount;
-      const nextEventIn = events.fired ? null : Math.max(0, events.nextTriggerTime - gameState.elapsed);
+      // 420 CHAOS: an ARMED meter launches the one event only once the road is readable
+      const road = chaos.assessRoad(trafficManager.vehicles, player, B420.CONFIG.REACTION_BASE + scrollSpeed * B420.CONFIG.REACTION_TIME);
+      if (chaos.step(dt, { playing: true, boxedIn: road.boxedIn, danger: road.danger, eventBusy: events.isBusy() || trafficManager.rivalActive })) {
+        events.launchChaosEvent();
+        chaos.onLaunched();
+      }
 
       // near misses
       const nm = collision.checkNearMisses(dt, player, trafficManager.vehicles);
@@ -237,6 +249,7 @@
         const base = e.tight ? B420.CONFIG.NEAR_MISS_SCORE_TIGHT : B420.CONFIG.NEAR_MISS_SCORE;
         const pts = base * heat.multiplier() * fuel.scoreMult();
         score.addBonus(pts);
+        chaos.award(e.tight ? B420.CONFIG.CHAOS_AWARD.tightMiss : B420.CONFIG.CHAOS_AWARD.nearMiss, heat.tier, blaze.active);
         heat.add(e.tight ? B420.CONFIG.HEAT_PER_TIGHT_MISS : B420.CONFIG.HEAT_PER_NEAR_MISS);
         const text = e.tight ? B420.Utils.choice(B420.TIGHT_MISS_TEXTS) : B420.Utils.choice(B420.NEAR_MISS_TEXTS);
         popupAt(`${text} +${Math.round(pts)}`, player.x, player.y - 30, e.tight);
@@ -245,6 +258,7 @@
       if (nm.thread) {
         const pts = B420.CONFIG.THREAD_NEEDLE_BONUS * heat.multiplier() * fuel.scoreMult();
         score.addBonus(pts);
+        chaos.award(B420.CONFIG.CHAOS_AWARD.thread, heat.tier, blaze.active);
         heat.add(B420.CONFIG.HEAT_PER_THREAD);
         popupAt(`THREAD THE NEEDLE +${Math.round(pts)}`, player.x, player.y - 55, true);
         audio.heatUp();
@@ -255,6 +269,7 @@
       const collected = collision.checkPickups(player, trafficManager.pickups);
       for (const p of collected) {
         if (p.kind === 'blaze') {
+          chaos.award(B420.CONFIG.CHAOS_AWARD.blaze, heat.tier, blaze.active);
           blaze.fill(B420.CONFIG.BLAZE_PICKUP_FILL);
           score.addBonus(B420.CONFIG.PICKUP_BLAZE_SCORE);
           audio.pickup();
@@ -276,6 +291,7 @@
       if (trafficManager.rival && collision.checkRivalOvertake(player, trafficManager.rival)) {
         const pts = B420.CONFIG.RIVAL_SMOKE_SCORE * heat.multiplier() * fuel.scoreMult();
         score.addBonus(pts);
+        chaos.award(B420.CONFIG.CHAOS_AWARD.rival, heat.tier, blaze.active);
         heat.add(B420.CONFIG.HEAT_PER_RIVAL);
         gameState.rivalsSmoked++;
         popupAt(`SMOKED HIM +${Math.round(pts)}`, player.x, player.y - 60, true);
@@ -306,9 +322,9 @@
         if (hit) triggerCollision(hit);
       }
 
-      if (debugPanel) debugPanel.updateReadout(`heat ${heat.value.toFixed(0)}/100 (x${heat.tier}) | t=${gameState.elapsed.toFixed(1)}s | next420=${events.nextTriggerTime.toFixed(0)}s | vehicles=${trafficManager.vehicles.length}`);
+      if (debugPanel) debugPanel.updateReadout(`heat ${heat.value.toFixed(0)}/100 (x${heat.tier}) | t=${gameState.elapsed.toFixed(1)}s | chaos=${chaos.chaosValue.toFixed(0)}${chaos.chaosArmed ? " ARMED" : ""} safe=${!road.boxedIn && !road.danger} | vehicles=${trafficManager.vehicles.length}`);
 
-      hud.update(gameState, heat, blaze, nextEventIn);
+      hud.update(gameState, heat, blaze, chaos);
       touch.setBlaze(blaze.progressFraction(), blaze.ready);
     }
 

@@ -17,7 +17,13 @@ B420.DebugPanel = class DebugPanel {
       <button data-act="ev-ufo">UFO</button>
       <button data-act="ev-munchies">Munchies</button>
       <button data-act="ev-moving_lines">Moving Lines</button>
-      <button data-act="skip420">Skip timer to ~4:20</button>
+      <div class="debug-sub">420 CHAOS</div>
+      <button data-act="chaos-25">CHAOS 25</button>
+      <button data-act="chaos-50">CHAOS 50</button>
+      <button data-act="chaos-99">CHAOS 99</button>
+      <button data-act="chaos-100">CHAOS 100 / FILL</button>
+      <button data-act="chaos-arm">ARM CHAOS</button>
+      <button data-act="chaos-reset">RESET CHAOS</button>
       <div class="debug-sub">Force spawn</div>
       <button data-act="sp-sedan">Sedan</button>
       <button data-act="sp-pickup">Pickup</button>
@@ -48,7 +54,12 @@ B420.DebugPanel = class DebugPanel {
   _act(act) {
     if (act === 'blaze') this.hooks.onForceBlaze && this.hooks.onForceBlaze();
     else if (act.startsWith('ev-')) this.hooks.onForceEvent && this.hooks.onForceEvent(act.slice(3));
-    else if (act === 'skip420') this.hooks.onSkipTo420 && this.hooks.onSkipTo420();
+    else if (act.startsWith('chaos-')) {
+      const k = act.slice(6);
+      if (k === 'arm') this.hooks.onArmChaos && this.hooks.onArmChaos();
+      else if (k === 'reset') this.hooks.onResetChaos && this.hooks.onResetChaos();
+      else this.hooks.onChaos && this.hooks.onChaos(Number(k));
+    }
     else if (act.startsWith('sp-')) this.hooks.onForceSpawn && this.hooks.onForceSpawn(act.slice(3));
     else if (act === 'rival') this.hooks.onForceRival && this.hooks.onForceRival();
     else if (act === 'fuel') this.hooks.onForceFuel && this.hooks.onForceFuel();
