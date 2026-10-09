@@ -17,7 +17,7 @@ B420.Screens = class Screens {
           <p>DON'T HIT SHIT</p>
           <p>DRIVE STUPID FOR MORE POINTS</p>
           <p>SPACE / \u2191 &mdash; BLAZE</p>
-          <p>SURVIVE 4:20</p>
+          <p>FILL 420 CHAOS</p>
           <button class="btn btn-ghost btn-small" data-el="howCloseBtn">GOT IT</button>
         </div>
       </div>
@@ -79,7 +79,7 @@ B420.Screens = class Screens {
     this.refs.newRecord.classList.toggle('show', !!r.newRecord);
     const cell = ([label, value]) => `<div class="stat"><span class="stat-label">${label}</span><span class="stat-value">${value}</span></div>`;
     const primary = [['HI', hi.toLocaleString()], ['TIME', B420.Utils.formatTime(r.time)], ['MAX HEAT', 'x' + r.maxHeatTier]];
-    const secondary = [['NEAR MISSES', r.nearMisses], ['BLAZE MODES', r.blazeModesUsed], ['420 EVENTS', r.events420Survived]];
+    const secondary = [['NEAR MISSES', r.nearMisses], ['BLAZE MODES', r.blazeModesUsed], ['CHAOS EVENTS', r.events420Survived]];
     this.refs.statGrid.innerHTML =
       '<div class="stat-row primary">' + primary.map(cell).join('') + '</div>' +
       '<div class="stat-row secondary">' + secondary.map(cell).join('') + '</div>';

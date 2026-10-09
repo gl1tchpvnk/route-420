@@ -48,6 +48,11 @@ B420.Vehicle = class Vehicle {
     this.telegraphT = 0;
     this.laneChangeCooldown = B420.Utils.randRange(0, 1.5);
     this.brakeMult = 1;
+    this.speedMod = 0;
+    this.speedTarget = 0;
+    this.speedModT = B420.Utils.randRange(0, this.cfg.varEvery[0]);
+    this.surgeT = 0;
+    this.blockedT = 0;
     this.w = this.cfg.w;
     this.h = this.cfg.h;
     this.wanderOffset = 0;
@@ -71,8 +76,17 @@ B420.Vehicle = class Vehicle {
     return { x: this.x - this.w / 2, y: this.y - this.h / 2, w: this.w, h: this.h };
   }
 
-  update(dt, scrollSpeed, player, vehicles) {
-    let factor = this.cfg.speedFactor;
+  update(dt, scrollSpeed, player, vehicles, mods) {
+    // subtle personality speed drift: smooth toward a target that is re-picked every few seconds
+    this.speedModT -= dt;
+    if (this.speedModT <= 0) {
+      this.speedTarget = (Math.random() * 2 - 1) * this.cfg.speedVar;
+      this.speedModT = B420.Utils.randRange(this.cfg.varEvery[0], this.cfg.varEvery[1]);
+    }
+    this.speedMod += (this.speedTarget - this.speedMod) * Math.min(1, dt * 1.2);
+    this.surgeT = Math.max(0, this.surgeT - dt);
+    const surgeLevel = this.surgeT > 0 ? B420.Utils.clamp(Math.min(this.surgeT / 0.5, (1.6 - this.surgeT) / 0.3), 0, 1) : 0;
+    let factor = this.cfg.speedFactor + this.speedMod + (this.cfg.surge || 0) * surgeLevel + ((mods && mods.speedBoost) || 0); // stampede adds a small temporary boost
 
     if (this.type === 'muscle') {
       this.burstCooldown = Math.max(0, this.burstCooldown - dt);
@@ -90,7 +104,9 @@ B420.Vehicle = class Vehicle {
     this.laneChangeCooldown = Math.max(0, this.laneChangeCooldown - dt);
     const settled = this.laneT >= 1 && this.telegraphT <= 0;
     const ahead = B420._trafficNeighbor(vehicles, this, this.lane, true);
-    const FG = B420.CONFIG.TRAFFIC_FOLLOW_GAP, BG = B420.CONFIG.TRAFFIC_BRAKE_GAP;
+    const FG = B420.CONFIG.TRAFFIC_FOLLOW_GAP * this.cfg.followMult, BG = B420.CONFIG.TRAFFIC_BRAKE_GAP * this.cfg.followMult;
+    // how long this car has been stuck behind something (its willingness to ask for a pass depends on personality)
+    if (ahead && ahead.gap < FG && settled) this.blockedT += dt; else if (!ahead || ahead.gap >= FG * 1.15) this.blockedT = 0;
     if (ahead && ahead.gap < BG) {
       this.brakeMult = Math.max(0.42, this.brakeMult - dt * 4); // emergency brake: immediate, not eased, but never looks stuck
     } else {
@@ -100,8 +116,8 @@ B420.Vehicle = class Vehicle {
 
     const reactionDist = B420.CONFIG.REACTION_BASE + scrollSpeed * B420.CONFIG.REACTION_TIME;
     const copWantsMove = this.type === 'cop' && this.copState === 'idle'
-      && this.y > 0 && this.y < this.renderer.height * 0.55 && (this.copTimer -= dt) <= 0;
-    if (settled && (copWantsMove || (ahead && ahead.gap < FG && this.laneChangeCooldown <= 0))) {
+      && this.y > 0 && this.y < this.renderer.height * 0.7 && (this.copTimer -= dt) <= 0;
+    if (settled && (copWantsMove || (ahead && ahead.gap < FG && this.laneChangeCooldown <= 0 && this.blockedT >= this.cfg.passDelay))) {
       const tries = copWantsMove
         ? [B420.Utils.clamp(this.lane + (player.lane > this.lane ? 1 : player.lane < this.lane ? -1 : 0), 0, B420.CONFIG.LANES - 1)]
         : [this.lane - 1, this.lane + 1];
@@ -119,8 +135,8 @@ B420.Vehicle = class Vehicle {
         }
         chosen = l; best = spaceAhead;
       }
-      if (copWantsMove) this.copState = 'done'; // one attempt only, whether or not a gap was found
-      if (chosen != null) { this.telegraphT = B420.CONFIG.TRAFFIC_TELEGRAPH_S; this.targetLane = chosen; this.laneChangeCooldown = B420.CONFIG.TRAFFIC_LANE_COOLDOWN; }
+      if (copWantsMove) this.copTimer = (mods && mods.copPanic) ? B420.Utils.randRange(1.2, 2.2) : B420.Utils.randRange(3.5, 6); // COP PANIC: asks more often, same safety gate // keeps paying attention: re-requests a move toward the player every few seconds (same safety gate)
+      if (chosen != null) { this.telegraphT = B420.CONFIG.TRAFFIC_TELEGRAPH_S; this.targetLane = chosen; this.laneChangeCooldown = B420.CONFIG.TRAFFIC_LANE_COOLDOWN * this.cfg.cooldownMult; }
     }
 
     if (this.telegraphT > 0) {
@@ -132,7 +148,7 @@ B420.Vehicle = class Vehicle {
       const fromX = this.renderer.laneX(this.laneFrom), toX = this.renderer.laneX(this.lane);
       this._laneX = B420.Utils.lerp(fromX, toX, B420.Utils.easeOutCubic(this.laneT));
       this.tiltAngle = (1 - this.laneT) * 0.05 * (toX > fromX ? 1 : -1);
-      if (this.laneT >= 1) this.tiltAngle = 0;
+      if (this.laneT >= 1) { this.tiltAngle = 0; if (this.cfg.surge) this.surgeT = 1.6; } // muscle: small surge after a completed pass
     } else {
       this._laneX = this.renderer.laneX(this.lane);
     }
@@ -248,20 +264,27 @@ B420.Rival = class Rival {
 };
 
 B420.UFO = class UFO {
-  constructor(renderer) {
+  constructor(renderer, opts) {
+    opts = opts || {};
+    this.beamDur = opts.beamDur || 0.6;
+    this.cooldownRange = opts.cooldown || [3.5, 5.5];
+    this.maxTargets = opts.maxTargets || Infinity;
+    this.speed = opts.speed || 22;
+    this.yMax = opts.yMax || 0.55;
+    this.taken = 0;
     this.renderer = renderer;
     this.x = renderer.width * 0.5;
     this.y = 46;
     this.dir = Math.random() > 0.5 ? 1 : -1;
     this.beamTarget = null;
     this.beamTimer = 0;
-    this.cooldown = 1.4;
+    this.cooldown = opts.firstCooldown || 1.4;
     this.age = 0;
   }
 
   update(dt, vehicles) {
     this.age += dt;
-    this.x += this.dir * 22 * dt;
+    this.x += this.dir * this.speed * dt;
     if (this.x < this.renderer.width * 0.18 || this.x > this.renderer.width * 0.82) this.dir *= -1;
 
     if (this.beamTarget) {
@@ -269,16 +292,17 @@ B420.UFO = class UFO {
       if (this.beamTimer <= 0) {
         this.beamTarget.abducted = true;
         this.beamTarget = null;
-        this.cooldown = B420.Utils.randRange(3.5, 5.5);
+        this.taken++;
+        this.cooldown = B420.Utils.randRange(this.cooldownRange[0], this.cooldownRange[1]);
       }
       return;
     }
     this.cooldown -= dt;
-    if (this.cooldown <= 0) {
-      const candidates = vehicles.filter(v => !v.dead && !v.abducted && v.y > 90 && v.y < this.renderer.height * 0.55);
+    if (this.cooldown <= 0 && this.taken < this.maxTargets) { // only ever traffic: the player is never in this list
+      const candidates = vehicles.filter(v => !v.dead && !v.abducted && v.y > 60 && v.y < this.renderer.height * this.yMax);
       if (candidates.length) {
         this.beamTarget = B420.Utils.choice(candidates);
-        this.beamTimer = 0.6;
+        this.beamTimer = this.beamDur;
       } else {
         this.cooldown = 0.8;
       }

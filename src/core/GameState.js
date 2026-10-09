@@ -11,6 +11,7 @@ B420.GameState = class GameState {
   reset() {
     this.elapsed = 0;
     this.score = 0;
+    this.scoreMult = 1;
     this.nearMisses = 0;
     this.tightMisses = 0;
     this.blazeModesUsed = 0;

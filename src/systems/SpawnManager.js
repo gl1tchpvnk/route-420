@@ -9,7 +9,11 @@ B420.SpawnManager = class SpawnManager {
   }
 
   // Fresh spawn timing for a new run: traffic, BLAZE pickup and FUEL timers.
+  setMods(m) { this.mods = { intervalMult: m.intervalMult || 1, typeBoost: { ...(m.typeBoost || {}) } }; }
+  clearMods() { this.mods = { intervalMult: 1, typeBoost: {} }; }
+
   reset() {
+    this.clearMods();
     this.spawnTimer = B420.CONFIG.SPAWN_INTERVAL_START;
     this.pickupTimer = B420.Utils.randRange(B420.CONFIG.PICKUP_INTERVAL_MIN, B420.CONFIG.PICKUP_INTERVAL_MAX);
     this.resetFuelTimer();
@@ -19,7 +23,9 @@ B420.SpawnManager = class SpawnManager {
     return B420.Utils.clamp(elapsed / B420.CONFIG.SPAWN_RAMP_SECONDS, 0, 1);
   }
 
-  spawnInterval(elapsed) {
+  spawnInterval(elapsed) { return this._baseInterval(elapsed) * this.mods.intervalMult; }
+
+  _baseInterval(elapsed) {
     if (elapsed < B420.CONFIG.FORGIVING_SECONDS) return B420.CONFIG.SPAWN_INTERVAL_START * 1.3;
     const t = this.difficultyT(elapsed);
     return B420.Utils.lerp(B420.CONFIG.SPAWN_INTERVAL_START, B420.CONFIG.SPAWN_INTERVAL_MIN, t);
@@ -29,7 +35,7 @@ B420.SpawnManager = class SpawnManager {
     const t = this.difficultyT(elapsed);
     const entries = Object.keys(B420.TYPE_CONFIG).map((type) => {
       const c = B420.TYPE_CONFIG[type];
-      return { value: type, weight: B420.Utils.lerp(c.weightBase, c.weightLate, t) };
+      return { value: type, weight: B420.Utils.lerp(c.weightBase, c.weightLate, t) * (this.mods.typeBoost[type] || 1) };
     });
     return B420.Utils.weightedChoice(entries);
   }
@@ -48,8 +54,7 @@ B420.SpawnManager = class SpawnManager {
     for (const p of pickups || []) if (p.kind === 'fuel' && !p.collected && p.y < 170) occ.add(p.lane);
     const free = [];
     for (let i = 0; i < B420.CONFIG.LANES; i++) if (!occ.has(i)) free.push(i);
-    if (free.length === 0) return null; // no safe lane right now — skip this spawn
-    if (free.length === 1) return free[0];
+    if (free.length <= 1) return null; // never fill the last open lane near the top: no spawn walls (matters most under TRAFFIC RUSH)
     return B420.Utils.choice(free);
   }
 
@@ -79,7 +84,7 @@ B420.SpawnManager = class SpawnManager {
       const lane = this.chooseSafeLane(vehicles, pickups);
       if (lane !== null) {
         let type = this.pickType(elapsed);
-        if (type === 'cop' && elapsed < 30) type = 'sedan'; // cops don't show up immediately
+        if (type === 'cop' && elapsed < 30 && !this.mods.typeBoost.cop) type = 'sedan'; // cops don't show up immediately
         result.spawnType = type;
         result.spawnLane = lane;
       }

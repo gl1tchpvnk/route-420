@@ -13,9 +13,29 @@ B420.TrafficManager = class TrafficManager {
     this.rivalCooldown = B420.CONFIG.RIVAL_MIN_SURVIVAL;
     this.rivalActive = false;
     this.hotRodSkinActive = false;
+    this.mods = { copPanic: false, speedBoost: 0, muscleSkin: false };
+  }
+
+  // CHAOS traffic-pressure events: bias the existing spawner / cop requests, nothing else.
+  setEventMods(type) {
+    const m = B420.EVENT_MODS[type];
+    if (!m) return;
+    this.spawner.setMods(m.spawn || {});
+    this.mods.copPanic = !!m.copPanic;
+    this.mods.speedBoost = m.speedBoost || 0;
+    this.mods.muscleSkin = !!m.muscleSkin;
+    if (this.mods.muscleSkin) for (const v of this.vehicles) if (v.type === 'muscle') v.skinOverride = 'hotrod';
+  }
+  clearEventMods() {
+    this.spawner.clearMods();
+    this.mods.copPanic = false;
+    this.mods.speedBoost = 0;
+    if (this.mods.muscleSkin && !this.hotRodSkinActive) for (const v of this.vehicles) if (v.type === 'muscle') v.skinOverride = null;
+    this.mods.muscleSkin = false;
   }
 
   reset() {
+    this.clearEventMods();
     this.vehicles = [];
     this.pickups = [];
     this.rival = null;
@@ -38,7 +58,7 @@ B420.TrafficManager = class TrafficManager {
     if (plan.spawnType) {
       const type = opts.forceType || plan.spawnType;
       const nv = new B420.Vehicle(type, plan.spawnLane, this.renderer, -60);
-      if (this.hotRodSkinActive) nv.skinOverride = 'hotrod';
+      if (this.hotRodSkinActive || (this.mods.muscleSkin && nv.type === 'muscle')) nv.skinOverride = 'hotrod';
       this.vehicles.push(nv);
     }
     if (plan.spawnPickup && !opts.suppressBlazePickup) {
@@ -55,7 +75,7 @@ B420.TrafficManager = class TrafficManager {
       });
     }
 
-    for (const v of this.vehicles) v.update(dt, scrollSpeed, player, this.vehicles);
+    for (const v of this.vehicles) v.update(dt, scrollSpeed, player, this.vehicles, this.mods);
     this.vehicles = this.vehicles.filter(v => !v.dead && !v.abducted && v.y < this.renderer.height + 80);
 
     for (const p of this.pickups) {

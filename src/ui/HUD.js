@@ -1,5 +1,5 @@
 // DOM-based HUD: one compact instrument cluster on top of the canvas.
-// The 4:20/event readout is a self-contained slot (.hud-next420) so it can be swapped later.
+// The 420 CHAOS readout is a self-contained slot (.hud-chaos).
 window.B420 = window.B420 || {};
 
 B420.HUD = class HUD {
@@ -10,7 +10,7 @@ B420.HUD = class HUD {
     this.el.innerHTML = `
       <div class="hud-cluster">
         <div class="hud-row hud-row-main">
-          <div class="hud-stat hud-score"><span class="hud-label">SCORE</span><span class="hud-value" data-el="score">000000</span></div>
+          <div class="hud-stat hud-score"><span class="hud-label">SCORE <span class="x420-badge" data-el="x420">x4.20</span></span><span class="hud-value" data-el="score">000000</span></div>
           <div class="hud-stat hud-hi"><span class="hud-label">HI</span><span class="hud-value sm" data-el="hi">000000</span></div>
           <div class="hud-stat hud-time"><span class="hud-label">TIME</span><span class="hud-value sm" data-el="time">0:00</span></div>
           <div class="hud-btns">
@@ -21,7 +21,11 @@ B420.HUD = class HUD {
         <div class="hud-row hud-row-sys">
           <div class="hud-sys hud-heat"><span class="hud-label">HEAT</span><span class="heat-value" data-el="heatValue">x1</span><div class="meter"><div class="meter-fill heat-fill" data-el="heatFill"></div></div></div>
           <div class="hud-sys hud-blaze"><span class="hud-label" data-el="blazeLabel">BLAZE</span><div class="meter"><div class="meter-fill blaze-fill" data-el="blazeFill"></div></div></div>
-          <div class="hud-sys hud-next420" data-el="next420"><span class="hud-label" data-el="next420Label">4:20 IN</span><span class="hud-value sm" data-el="next420Val">4:20</span></div>
+        </div>
+        <div class="hud-row hud-row-chaos hud-chaos chaos-low" data-el="chaos">
+          <span class="hud-label chaos-label" data-el="chaosLabel">420 CHAOS</span>
+          <div class="meter chaos-meter"><div class="meter-fill chaos-fill" data-el="chaosFill"></div></div>
+          <span class="chaos-state" data-el="chaosState">0</span>
         </div>
       </div>
       <div class="popup-layer" data-el="popups"></div>
@@ -37,9 +41,12 @@ B420.HUD = class HUD {
   bindPause(fn) { this.refs.pauseBtn.addEventListener('click', fn); }
   bindHome(fn) { this.refs.homeBtn.addEventListener('click', fn); }
 
-  update(gameState, heat, blaze, nextEventIn) {
+  update(gameState, heat, blaze, chaos) {
     const r = this.refs;
     r.score.textContent = B420.Utils.pad6(gameState.score);
+    const sm = gameState.scoreMult || 1;
+    r.score.parentNode.classList.toggle('x420', sm > 1);
+    if (sm > 1) r.x420.textContent = 'x' + sm.toFixed(2);
     r.hi.textContent = B420.Utils.pad6(gameState.hi);
     r.hi.classList.toggle('beat', gameState.hi > gameState.hiAtStart);
     r.time.textContent = B420.Utils.formatTime(gameState.elapsed);
@@ -52,23 +59,14 @@ B420.HUD = class HUD {
     r.blazeLabel.classList.toggle('ready', blaze.ready);
     this.el.classList.toggle('blaze-active', blaze.active);
 
-    const n = r.next420;
-    if (nextEventIn != null) {
-      const sec = Math.ceil(nextEventIn);
-      r.next420Label.textContent = '4:20 IN';
-      r.next420Val.textContent = B420.Utils.formatTime(sec);
-      n.classList.toggle('t20', nextEventIn <= 20 && nextEventIn > 10);
-      n.classList.toggle('t10', nextEventIn <= 10 && nextEventIn > 4);
-      n.classList.toggle('t4', nextEventIn <= 4);
-      if (nextEventIn <= 4) {
-        if (sec !== this._lastTickSec) { this._lastTickSec = sec; n.classList.remove('tick'); void n.offsetWidth; n.classList.add('tick'); }
-      } else {
-        this._lastTickSec = null;
-      }
-    } else {
-      r.next420Label.textContent = '4:20';
-      r.next420Val.textContent = 'SURVIVED';
-      n.classList.remove('t20', 't10', 't4', 'tick');
+    const cv = chaos.chaosValue;
+    r.chaosFill.style.width = cv + '%';
+    r.chaosState.textContent = chaos.chaosArmed ? 'ARMED' : String(chaos.chaosPercent);
+    const lvl = chaos.chaosArmed ? 'armed' : cv >= 75 ? 'chaos-high' : cv >= 35 ? 'chaos-mid' : 'chaos-low';
+    if (this._chaosLvl !== lvl) { // dim -> amber -> orange/lime -> ARMED
+      this._chaosLvl = lvl;
+      r.chaos.classList.remove('chaos-low', 'chaos-mid', 'chaos-high', 'armed');
+      r.chaos.classList.add(lvl);
     }
   }
 

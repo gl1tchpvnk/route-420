@@ -2,7 +2,7 @@
 
 A fast arcade driving game about hot rods, near misses, HEAT, and BLAZE.
 
-Drive recklessly — near misses and tight passes build HEAT, multiplying your risk bonuses up to x5. Collect green leaf pickups to fill the BLAZE meter, then pop it for a short burst of chaos and bonus score. Grab a jerry can for a few seconds of FUEL: a faster road and x1.5 scoring, with collisions fully live. Your best score is kept on this device as HI. Survive to 4:20 and Route 420 fires one randomized event that flips the road on its head for the rest of the run.
+Drive recklessly — near misses and tight passes build HEAT, multiplying your risk bonuses up to x5. Collect green leaf pickups to fill the BLAZE meter, then pop it for a short burst of chaos and bonus score. Grab a jerry can for a few seconds of FUEL: a faster road and x1.5 scoring, with collisions fully live. Your best score is kept on this device as HI. Reckless play fills the 420 CHAOS meter; once it is full and the road is readable, Route 420 launches an event that flips the road on its head.
 
 ## Controls
 
