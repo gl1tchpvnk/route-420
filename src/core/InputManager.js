@@ -7,12 +7,14 @@ B420.InputManager = class InputManager {
     this._onRight = null;
     this._onBlaze = null;
     this._onPause = null;
+    this._onEnter = null;
     this._down = {};
     window.addEventListener('keydown', (e) => this._keydown(e));
     window.addEventListener('keyup', (e) => this._keyup(e));
   }
 
-  bind({ onLeft, onRight, onBlaze, onPause }) {
+  bind({ onLeft, onRight, onBlaze, onPause, onEnter }) {
+    this._onEnter = onEnter || null;
     this._onLeft = onLeft || null;
     this._onRight = onRight || null;
     this._onBlaze = onBlaze || null;
@@ -29,6 +31,7 @@ B420.InputManager = class InputManager {
       case 'ArrowLeft': case 'KeyA': this._onLeft && this._onLeft(); e.preventDefault(); break;
       case 'ArrowRight': case 'KeyD': this._onRight && this._onRight(); e.preventDefault(); break;
       case 'Space': case 'ArrowUp': this._onBlaze && this._onBlaze(); e.preventDefault(); break;
+      case 'Enter': case 'NumpadEnter': if (this._onEnter && this._onEnter()) e.preventDefault(); break;
       case 'KeyP': case 'Escape': this._onPause && this._onPause(); e.preventDefault(); break;
     }
   }

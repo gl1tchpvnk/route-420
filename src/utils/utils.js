@@ -80,3 +80,12 @@ B420.Storage = {
     return data;
   }
 };
+
+// One-time hints. Own storage key (never the HI key); fails safe: without localStorage a hint shows once per session.
+B420.Tips = {
+  KEY: 'route420_tips_v1',
+  _mem: {},
+  _read() { try { const o = JSON.parse(localStorage.getItem(this.KEY)); return o && typeof o === 'object' ? o : {}; } catch (e) { return {}; } },
+  seen(id) { return !!this._mem[id] || !!this._read()[id]; },
+  mark(id) { this._mem[id] = true; try { const o = this._read(); o[id] = true; localStorage.setItem(this.KEY, JSON.stringify(o)); } catch (e) { /* storage unavailable */ } }
+};

@@ -17,6 +17,18 @@ B420.DebugPanel = class DebugPanel {
       <button data-act="ev-ufo">UFO</button>
       <button data-act="ev-munchies">Munchies</button>
       <button data-act="ev-moving_lines">Moving Lines</button>
+      <button data-act="ev-grandma_convoy">Grandma Convoy</button>
+      <button data-act="ev-cop_panic">Cop Panic</button>
+      <button data-act="ev-traffic_rush">Traffic Rush</button>
+      <button data-act="ev-ufo_sweep">UFO Sweep</button>
+      <button data-act="ev-x420">x4.20</button>
+      <button data-act="ev-road_drunk">Road Drunk</button>
+      <button data-act="ev-hot_rod_stampede">Hot Rod Stampede</button>
+      <button data-act="ev-greenout">Greenout</button>
+      <button data-act="ev-cop_ufo">Cop + UFO</button>
+      <button data-act="ev-munchies_mayhem">Munchies Mayhem</button>
+      <button data-act="ev-road_meltdown">Road Meltdown</button>
+      <button data-act="ev-blown">Blown</button>
       <div class="debug-sub">420 CHAOS</div>
       <button data-act="chaos-25">CHAOS 25</button>
       <button data-act="chaos-50">CHAOS 50</button>
@@ -24,6 +36,13 @@ B420.DebugPanel = class DebugPanel {
       <button data-act="chaos-100">CHAOS 100 / FILL</button>
       <button data-act="chaos-arm">ARM CHAOS</button>
       <button data-act="chaos-reset">RESET CHAOS</button>
+      <div class="debug-sub">Director</div>
+      <button data-act="dir-next">FORCE NEXT EVENT</button>
+      <button data-act="dir-clear">CLEAR EVENT</button>
+      <button data-act="dir-count-0">Event count 0</button>
+      <button data-act="dir-count-2">Event count 2</button>
+      <button data-act="dir-count-5">Event count 5</button>
+      <button data-act="dir-count-6">Event count 6</button>
       <div class="debug-sub">Force spawn</div>
       <button data-act="sp-sedan">Sedan</button>
       <button data-act="sp-pickup">Pickup</button>
@@ -59,6 +78,11 @@ B420.DebugPanel = class DebugPanel {
       if (k === 'arm') this.hooks.onArmChaos && this.hooks.onArmChaos();
       else if (k === 'reset') this.hooks.onResetChaos && this.hooks.onResetChaos();
       else this.hooks.onChaos && this.hooks.onChaos(Number(k));
+    } else if (act.startsWith('dir-')) {
+      const k = act.slice(4);
+      if (k === 'next') this.hooks.onForceNext && this.hooks.onForceNext();
+      else if (k === 'clear') this.hooks.onClearEvent && this.hooks.onClearEvent();
+      else this.hooks.onSetEventCount && this.hooks.onSetEventCount(Number(k.replace('count-', '')));
     }
     else if (act.startsWith('sp-')) this.hooks.onForceSpawn && this.hooks.onForceSpawn(act.slice(3));
     else if (act === 'rival') this.hooks.onForceRival && this.hooks.onForceRival();

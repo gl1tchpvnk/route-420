@@ -97,7 +97,8 @@ B420.VehicleArt = (function () {
   // ---- player hot rod, cumulative stages 1-6 ----
   function drawPlayer(ctx, player, bodyColor, flameAccent) {
     const stage = player.stage || 1;
-    const fuel = player.fuel || 0;
+    const fuel = Math.max(player.fuel || 0, player.blown || 0); // FUEL and BLOWN: flames + restrained shake
+    const flameLvl = Math.max(fuel, player.exhaust || 0);      // MELTDOWN exhaust: flames only, no shake
     const jitter = (stage >= 5 ? Math.sin((player.wobble || 0) * 40) * (stage >= 6 ? 1.4 : 0.7) : 0)
       + fuel * Math.sin((player.wobble || 0) * 55) * 0.6;
     ctx.save();
@@ -169,10 +170,10 @@ B420.VehicleArt = (function () {
     }
 
     // flames from exhaust — stage 4+
-    if (stage >= 4 || fuel > 0.05) {
+    if (stage >= 4 || flameLvl > 0.05) {
       const t = (player.wobble || 0) * 10;
       const flicker = 0.75 + Math.sin(t) * 0.25;
-      const flen = (stage >= 6 ? 22 : stage >= 4 ? 13 : 8) * flicker * (1 + 0.7 * fuel);
+      const flen = (stage >= 6 ? 22 : stage >= 4 ? 13 : 8) * flicker * (1 + 0.7 * flameLvl + 0.6 * (player.blown || 0));
       drawFlame(ctx, -w / 2 - 0.5, pipeLen - 1, flen, flameAccent);
       drawFlame(ctx, w / 2 + 0.5, pipeLen - 1, flen * 0.9, flameAccent);
     }

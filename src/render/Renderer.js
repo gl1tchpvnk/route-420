@@ -42,7 +42,7 @@ B420.Renderer = class Renderer {
 
   addShake(amount) { this.shake = Math.min(1, this.shake + amount); }
 
-  drawBackground(dt, scrollSpeed, movingLinesActive, trailAlpha) {
+  drawBackground(dt, scrollSpeed, movingLinesActive, trailAlpha, fx) {
     const ctx = this.ctx;
     ctx.fillStyle = trailAlpha ? `rgba(32,30,26,${trailAlpha})` : B420.COLORS.asphaltDark;
     ctx.fillRect(0, 0, this.width, this.height);
@@ -65,9 +65,19 @@ B420.Renderer = class Renderer {
     for (let i = 1; i < B420.CONFIG.LANES; i++) {
       let x = i * laneW;
       if (movingLinesActive) x += Math.sin(this.time * 3.2 + i) * 10;
+      // ROAD DRUNK / ROAD MELTDOWN: presentation only. Lane markings sway or ripple; lane positions
+      // (laneX), cars, steering and collision boxes are untouched.
+      if (fx && fx.sway) x += Math.sin(this.time * 2.2 + i * 0.7) * fx.sway;
       ctx.beginPath();
-      ctx.moveTo(x, this.dashOffset - 46);
-      ctx.lineTo(x, this.height);
+      if (fx && fx.melt) {
+        for (let y = this.dashOffset - 46, first = true; y <= this.height + 14; y += 14) {
+          const xx = x + Math.sin(y * 0.025 + this.time * 3 + i) * fx.melt;
+          if (first) { ctx.moveTo(xx, y); first = false; } else ctx.lineTo(xx, y);
+        }
+      } else {
+        ctx.moveTo(x, this.dashOffset - 46);
+        ctx.lineTo(x, this.height);
+      }
       ctx.stroke();
     }
     ctx.setLineDash([]);
@@ -95,6 +105,22 @@ B420.Renderer = class Renderer {
     grad.addColorStop(1, `rgba(120,160,70,${0.12 * strength})`);
     ctx.fillStyle = grad;
     ctx.fillRect(0, 0, this.width, this.height);
+  }
+
+  // GREENOUT: much stronger than GREEN FOG but edge-weighted, so the centre of the road stays readable.
+  drawGreenout(level) {
+    const ctx = this.ctx, cx = this.width / 2, cy = this.height / 2;
+    const g = ctx.createRadialGradient(cx, cy, this.height * 0.18, cx, cy, this.height * 0.72);
+    g.addColorStop(0, 'rgba(130,210,90,' + (0.05 * level).toFixed(3) + ')');
+    g.addColorStop(0.6, 'rgba(110,200,80,' + (0.22 * level).toFixed(3) + ')');
+    g.addColorStop(1, 'rgba(90,190,70,' + (0.5 * level).toFixed(3) + ')');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, this.width, this.height);
+    ctx.fillStyle = 'rgba(160,230,110,' + (0.09 * level).toFixed(3) + ')';
+    for (let i = 0; i < 4; i++) { // slow drifting edge wisps
+      const y = ((this.time * 55 + i * 230) % (this.height + 160)) - 80;
+      ctx.beginPath(); ctx.ellipse(i % 2 ? this.width : 0, y, 46, 100, 0, 0, Math.PI * 2); ctx.fill();
+    }
   }
 
   // Player Y: a little higher on touch/narrow screens so the car clears the controls.

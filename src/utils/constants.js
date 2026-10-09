@@ -26,7 +26,8 @@ B420.CONFIG = {
   PICKUP_BLAZE_SCORE: 100,
   MUNCHIE_SCORE: 250,
   RIVAL_SMOKE_SCORE: 1500,
-  EVENT_SURVIVE_SCORE: 1000,
+  CHAOS_SURVIVE_SCORE: 420, // flat reward for completing a CHAOS event alive (never multiplied)
+  X420_MULT: 4.2,
 
   HEAT_MAX: 100,
   HEAT_PER_NEAR_MISS: 14,
@@ -86,6 +87,10 @@ B420.CONFIG = {
   CHAOS_AWARD: { nearMiss: 8, tightMiss: 12, thread: 20, rival: 20, blaze: 5 },
   CHAOS_HEAT_STEP: 0.1,      // HEAT x1..x5 => 1.0 .. 1.4
   CHAOS_BLAZE_MULT: 1.25,    // while BLAZE is active (FUEL does not multiply CHAOS)
+  CHAOS_TIER_EARLY_MAX: 2,   // events 1-2 EARLY, 3-5 MID, 6+ LATE (events reached, not time)
+  CHAOS_TIER_MID_MAX: 5,
+  CHAOS_DENSE_AT: 4,         // on-screen cars >= this = dense traffic
+  CHAOS_SPARSE_AT: 1,        // <= this = sparse
   CHAOS_PASSIVE_RATE: 0.5,   // per second; never decays
   CHAOS_SAFE_HOLD: 0.35,     // seconds the road must stay readable before an armed event launches
   CHAOS_DANGER_AHEAD: 120,   // car this close ahead in the player's lane = immediate danger
@@ -139,16 +144,32 @@ B420.VEHICLE = {
   RIVAL: 'rival'
 };
 
+// speedFactor: on-screen downward speed as a multiple of the road-marking speed. Every ordinary type is a little
+// above 1.0, so traffic visibly drifts relative to the lane markings instead of looking fixed to the road.
+// followMult scales following/brake distance, passDelay = seconds blocked before asking to pass,
+// speedVar/varEvery = slow smooth speed drift (target re-picked every few seconds, never per frame).
 B420.TYPE_CONFIG = {
-  sedan:   { speedFactor: 1.00, w: 32, h: 54, weightBase: 58, weightLate: 32 },
-  pickup:  { speedFactor: 0.98, w: 33, h: 56, weightBase: 17, weightLate: 15, wander: true },
-  muscle:  { speedFactor: 0.55, w: 33, h: 55, weightBase: 7,  weightLate: 19, burst: -0.35 },
-  grandma: { speedFactor: 1.55, w: 32, h: 53, weightBase: 15, weightLate: 9  },
-  cop:     { speedFactor: 1.00, w: 33, h: 55, weightBase: 3,  weightLate: 9,  rare: true }
+  sedan:   { speedFactor: 1.08, w: 32, h: 54, weightBase: 58, weightLate: 32, speedVar: 0.012, varEvery: [3, 6],   followMult: 1.0,  passDelay: 1.4, cooldownMult: 1.0 },
+  pickup:  { speedFactor: 1.07, w: 33, h: 56, weightBase: 17, weightLate: 15, speedVar: 0.030, varEvery: [1.5, 3.5], followMult: 0.9,  passDelay: 0.9, cooldownMult: 1.0, wander: true },
+  muscle:  { speedFactor: 1.16, w: 33, h: 55, weightBase: 7,  weightLate: 19, speedVar: 0.015, varEvery: [2, 4],   followMult: 0.65, passDelay: 0.35, cooldownMult: 0.7, surge: 0.05, burst: -0.12 },
+  grandma: { speedFactor: 1.05, w: 32, h: 53, weightBase: 15, weightLate: 9,  speedVar: 0.004, varEvery: [4, 8],   followMult: 1.5,  passDelay: 5.0, cooldownMult: 1.6 },
+  cop:     { speedFactor: 1.11, w: 33, h: 55, weightBase: 3,  weightLate: 9,  speedVar: 0.010, varEvery: [3, 5],   followMult: 0.85, passDelay: 0.8, cooldownMult: 1.0, rare: true }
 };
 
 B420.EVENTS = {
   GREEN_FOG: 'green_fog',
+  GRANDMA_CONVOY: 'grandma_convoy',
+  COP_PANIC: 'cop_panic',
+  TRAFFIC_RUSH: 'traffic_rush',
+  UFO_SWEEP: 'ufo_sweep',
+  X420: 'x420',
+  ROAD_DRUNK: 'road_drunk',
+  HOT_ROD_STAMPEDE: 'hot_rod_stampede',
+  GREENOUT: 'greenout',
+  COP_UFO: 'cop_ufo',
+  MUNCHIES_MAYHEM: 'munchies_mayhem',
+  ROAD_MELTDOWN: 'road_meltdown',
+  BLOWN: 'blown',
   HOT_ROD_SWAP: 'hot_rod_swap',
   UFO: 'ufo',
   MUNCHIES: 'munchies',
@@ -166,3 +187,15 @@ B420.FOOD_EMOJI = ['🍕', '🍟', '🍩', '🍔', '🥤'];
 
 B420.NEAR_MISS_TEXTS = ['CLOSE', 'CLOSE!', 'NICE'];
 B420.TIGHT_MISS_TEXTS = ['TOO CLOSE', 'IDIOT', 'BAD IDEA'];
+
+// Temporary traffic-pressure modifiers applied while a CHAOS event runs (cleared on end/crash/Home/new run).
+// Tuned with a 120s x 6-seed fairness sim: player boxed-in <5% of frames, zero car-through-car overlaps.
+// They only bias the existing spawner / cop requests; baseline TYPE_CONFIG is never edited.
+B420.EVENT_MODS = {
+  grandma_convoy: { spawn: { intervalMult: 0.8, typeBoost: { grandma: 8 } } },
+  cop_panic: { spawn: { intervalMult: 0.85, typeBoost: { cop: 10 } }, copPanic: true },
+  traffic_rush: { spawn: { intervalMult: 0.75, typeBoost: {} } },
+  // Pass 2B-2
+  hot_rod_stampede: { spawn: { intervalMult: 0.85, typeBoost: { muscle: 9 } }, speedBoost: 0.05, muscleSkin: true },
+  cop_ufo: { spawn: { intervalMult: 0.9, typeBoost: { cop: 6 } }, copPanic: true }
+};

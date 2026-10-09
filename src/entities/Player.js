@@ -17,6 +17,8 @@ B420.Player = class Player {
     this.y = renderer.playerY();
     this.blazeMult = 1;
     this.fuel = 0; // FUEL ease level 0..1 (drives flames/shake/glow only)
+    this.blown = 0;   // BLOWN level 0..1 (flames/glow/restrained shake; presentation only)
+    this.exhaust = 0; // ROAD MELTDOWN exhaust level 0..1 (flames/glow only, no shake)
   }
 
   onResize() {
@@ -68,9 +70,10 @@ B420.Player = class Player {
     ctx.save();
     ctx.translate(this.x, this.y);
     if (rotation) ctx.rotate(rotation);
-    if (this.fuel > 0.02) { // very mild warm accent under the car
+    const warm = Math.max(this.fuel, this.blown, this.exhaust);
+    if (warm > 0.02) { // very mild warm accent under the car
       const g = ctx.createRadialGradient(0, 8, 4, 0, 8, 38);
-      g.addColorStop(0, 'rgba(255,140,50,' + (0.22 * this.fuel).toFixed(3) + ')');
+      g.addColorStop(0, 'rgba(255,140,50,' + (0.22 * warm).toFixed(3) + ')');
       g.addColorStop(1, 'rgba(255,140,50,0)');
       ctx.fillStyle = g;
       ctx.fillRect(-40, -30, 80, 90);
