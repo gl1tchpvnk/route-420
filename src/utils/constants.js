@@ -28,6 +28,7 @@ B420.CONFIG = {
   RIVAL_SMOKE_SCORE: 1500,
   CHAOS_SURVIVE_SCORE: 420, // flat reward for completing a CHAOS event alive (never multiplied)
   X420_MULT: 4.2,
+  GHOST_ALPHA_MAX: 0.16, // echoes are always faint: the real car stays the crispest image
 
   HEAT_MAX: 100,
   HEAT_PER_NEAR_MISS: 14,
@@ -170,6 +171,12 @@ B420.EVENTS = {
   MUNCHIES_MAYHEM: 'munchies_mayhem',
   ROAD_MELTDOWN: 'road_meltdown',
   BLOWN: 'blown',
+  MELTING_POINT: 'melting_point',
+  DOUBLE_VISION: 'double_vision',
+  BAD_TRIP: 'bad_trip',
+  SIDEWAYS: 'sideways',
+  WARP_SPEED: 'warp_speed',
+  ROAD_IS_FINE: 'road_is_fine',
   HOT_ROD_SWAP: 'hot_rod_swap',
   UFO: 'ufo',
   MUNCHIES: 'munchies',

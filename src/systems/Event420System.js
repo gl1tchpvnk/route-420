@@ -36,7 +36,14 @@ B420.Event420System = class Event420System {
       { type: B420.EVENTS.COP_UFO, name: 'COP + UFO', duration: 8, banner: 'COP + UFO', ambient: false },
       { type: B420.EVENTS.MUNCHIES_MAYHEM, name: 'MUNCHIES MAYHEM', duration: 8, banner: 'MUNCHIES MAYHEM' },
       { type: B420.EVENTS.ROAD_MELTDOWN, name: 'ROAD MELTDOWN', duration: 7, banner: 'ROAD MELTDOWN', ambient: false },
-      { type: B420.EVENTS.BLOWN, name: 'BLOWN', duration: 6, banner: 'BLOWN', ambient: false }
+      { type: B420.EVENTS.BLOWN, name: 'BLOWN', duration: 6, banner: 'BLOWN', ambient: false },
+      // Pass 2C: standalone VISUAL CHAOS events (render-only; profiles live in VisualChaosSystem, one per event)
+      { type: B420.EVENTS.MELTING_POINT, name: 'MELTING POINT', duration: 6, banner: 'MELTING POINT', ambient: false },
+      { type: B420.EVENTS.DOUBLE_VISION, name: 'DOUBLE VISION', duration: 5, banner: 'DOUBLE VISION', ambient: false },
+      { type: B420.EVENTS.BAD_TRIP, name: 'BAD TRIP', duration: 7, banner: 'BAD TRIP', ambient: false },
+      { type: B420.EVENTS.SIDEWAYS, name: 'SIDEWAYS', duration: 6, banner: 'SIDEWAYS', ambient: false },
+      { type: B420.EVENTS.WARP_SPEED, name: 'WARP SPEED', duration: 5, banner: 'WARP SPEED', ambient: false },
+      { type: B420.EVENTS.ROAD_IS_FINE, name: 'THE ROAD IS FINE', duration: 7, banner: 'THE ROAD IS FINE', statusLine: 'THE ROAD IS FINE.', ambient: false }
     ];
     this.reset();
   }
@@ -93,6 +100,7 @@ B420.Event420System = class Event420System {
     this.announceStep = 0;
     this.announcePhase = B420.CONFIG.EVENT_FLASH_MS;
     this.audio && this.audio.eventTrigger();
+    if (this.onStart) this.onStart(def); // e.g. the deadpan status line
     if (def.type === B420.EVENTS.HOT_ROD_SWAP) this.trafficManager.setHotRodSkin(true);
     this.trafficManager.setEventMods(def.type);
     const ufoOpts = Event420System.UFO_OPTS[def.type];

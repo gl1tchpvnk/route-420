@@ -42,10 +42,19 @@ B420.ChaosDirector = class ChaosDirector {
       [E.COP_UFO]: [0, 0, 1.2],
       [E.MUNCHIES_MAYHEM]: [0, 0, 1.0],
       [E.ROAD_MELTDOWN]: [0, 0, 1.1],
-      [E.BLOWN]: [0, 0, 1.0]
+      [E.BLOWN]: [0, 0, 1.0],
+      // Pass 2C visual chaos: MID gets the four milder ones, LATE gets all six (BAD TRIP / ROAD IS FINE heavier)
+      [E.MELTING_POINT]: [0, 0.8, 1.0],
+      [E.DOUBLE_VISION]: [0, 0.8, 1.0],
+      [E.SIDEWAYS]: [0, 0.8, 1.0],
+      [E.WARP_SPEED]: [0, 0.8, 1.0],
+      [E.BAD_TRIP]: [0, 0, 1.4],
+      [E.ROAD_IS_FINE]: [0, 0, 1.4]
     };
   }
 
+  // perception-heavy events: don't chain them back to back
+  static get VISUAL_HEAVY() { const E = B420.EVENTS; return [E.MELTING_POINT, E.DOUBLE_VISION, E.BAD_TRIP, E.SIDEWAYS, E.WARP_SPEED, E.ROAD_IS_FINE, E.ROAD_DRUNK, E.GREENOUT, E.ROAD_MELTDOWN]; }
   static get PRESSURE() { const E = B420.EVENTS; return [E.GRANDMA_CONVOY, E.COP_PANIC, E.TRAFFIC_RUSH, E.HOT_ROD_STAMPEDE, E.COP_UFO]; }
 
   // ctx: { vehicles (on-screen count), heatTier, blazeActive }
@@ -57,12 +66,13 @@ B420.ChaosDirector = class ChaosDirector {
     const n = (ctx && ctx.vehicles) || 0, heat = (ctx && ctx.heatTier) || 1;
     if (n >= C.CHAOS_DENSE_AT) { w[E.UFO] *= 2.2; w[E.MOVING_LINES] *= 0.6; w[E.UFO_SWEEP] *= 2.4; w[E.GRANDMA_CONVOY] *= 0.4; w[E.TRAFFIC_RUSH] *= 0.35; w[E.COP_PANIC] *= 0.7; w[E.COP_UFO] *= 2.0; w[E.HOT_ROD_STAMPEDE] *= 0.4; w[E.ROAD_DRUNK] *= 0.7; w[E.MUNCHIES_MAYHEM] *= 0.7; }           // crowded: thin it out, keep it readable
     else if (n <= C.CHAOS_SPARSE_AT) { w[E.UFO] *= 0.35; w[E.MUNCHIES] *= 1.5; w[E.MOVING_LINES] *= 1.2; w[E.UFO_SWEEP] *= 0.2; w[E.GRANDMA_CONVOY] *= 1.5; w[E.TRAFFIC_RUSH] *= 1.6; w[E.HOT_ROD_STAMPEDE] *= 1.5; w[E.MUNCHIES_MAYHEM] *= 1.3; w[E.COP_UFO] *= 0.5; } // empty: UFO has nothing to take
-    if (heat >= 4) { w[E.MOVING_LINES] *= 1.3; w[E.GREEN_FOG] *= 1.3; w[E.UFO] *= 0.9; w[E.COP_PANIC] *= 1.35; w[E.TRAFFIC_RUSH] *= 1.3; w[E.BLOWN] *= 1.3; w[E.ROAD_MELTDOWN] *= 1.3; w[E.HOT_ROD_STAMPEDE] *= 1.3; } // hot: slightly more intense
+    if (heat >= 4) { w[E.MOVING_LINES] *= 1.3; w[E.GREEN_FOG] *= 1.3; w[E.UFO] *= 0.9; w[E.COP_PANIC] *= 1.35; w[E.TRAFFIC_RUSH] *= 1.3; w[E.BLOWN] *= 1.3; w[E.ROAD_MELTDOWN] *= 1.3; w[E.HOT_ROD_STAMPEDE] *= 1.3; w[E.BAD_TRIP] *= 1.2; } // hot: slightly more intense
     else if (heat <= 1) { w[E.MUNCHIES] *= 1.2; w[E.COP_PANIC] *= 0.8; w[E.TRAFFIC_RUSH] *= 0.8; }
-    if (ctx && ctx.blazeActive) { w[E.HOT_ROD_SWAP] *= 1.4; w[E.GREEN_FOG] *= 1.3; w[E.MOVING_LINES] *= 0.7; w[E.GREENOUT] *= 1.4; w[E.ROAD_DRUNK] *= 1.4; } // weird/visual fits BLAZE
+    if (ctx && ctx.blazeActive) { w[E.HOT_ROD_SWAP] *= 1.4; w[E.GREEN_FOG] *= 1.3; w[E.MOVING_LINES] *= 0.7; w[E.GREENOUT] *= 1.4; w[E.ROAD_DRUNK] *= 1.4; w[E.DOUBLE_VISION] *= 1.3; w[E.BAD_TRIP] *= 1.3; } // weird/visual fits BLAZE
     const last = this.history[this.history.length - 1], prev = this.history[this.history.length - 2];
     // don't chain traffic-pressure events back to back
     if (this.history.length && ChaosDirector.PRESSURE.includes(this.history[this.history.length - 1])) for (const t of ChaosDirector.PRESSURE) w[t] *= 0.35;
+    if (last && ChaosDirector.VISUAL_HEAVY.includes(last)) for (const t of ChaosDirector.VISUAL_HEAVY) w[t] *= 0.6;
     if (last in w) w[last] = 0;      // never immediately repeat
     if (prev in w) w[prev] *= 0.2;   // and avoid the one before when alternatives exist
     return w;

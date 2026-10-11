@@ -27,6 +27,9 @@
     const score = new B420.ScoreSystem();
     const events = new B420.Event420System(trafficManager, renderer, audio);
     const director = new B420.ChaosDirector();
+    const visual = new B420.VisualChaosSystem();
+    const calmMotion = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+    events.onStart = (def) => { if (def.statusLine) hud.stageToast(def.statusLine); };
     events.onEnd = (type) => director.onEnded(type);
     const hud = new B420.HUD(uiLayer);
     const screens = new B420.Screens(uiLayer);
@@ -78,6 +81,7 @@
       gameState.scoreMult = 1;
       player.blown = 0;
       player.exhaust = 0;
+      visual.reset();
       hud.hideEventBanner();
     }
 
@@ -162,7 +166,7 @@
     screens.refs.pauseHomeBtn.addEventListener('click', goHome);
 
     if (debugMode) {
-      B420.debug = { gameState, player, heat, blaze, score, events, trafficManager, renderer, fuel, hud, roadSpeedMult, chaos, director, directorCtx, setCollision: (v) => { collisionEnabled = v; } };
+      B420.debug = { gameState, player, heat, blaze, score, events, trafficManager, renderer, fuel, hud, roadSpeedMult, chaos, director, visual, directorCtx, setCollision: (v) => { collisionEnabled = v; } };
       debugPanel = new B420.DebugPanel(uiLayer, {
         onForceBlaze: () => { blaze.meter = B420.CONFIG.BLAZE_MAX; requestBlaze(); },
         onForceEvent: (type) => { events.clear(); director.tryStart(type, events); },
@@ -364,7 +368,7 @@
         if (hit) triggerCollision(hit);
       }
 
-      if (debugPanel) debugPanel.updateReadout(`heat ${heat.value.toFixed(0)}/100 (x${heat.tier}) | t=${gameState.elapsed.toFixed(1)}s | chaos=${chaos.chaosValue.toFixed(0)}${chaos.chaosArmed ? " ARMED" : ""} safe=${!road.boxedIn && !road.danger} | ${director.tier} #${director.eventCount} ev=${director.activeType || "-"} x${score.eventMult.toFixed(2)} | vehicles=${trafficManager.vehicles.length}`);
+      if (debugPanel) debugPanel.updateReadout(`heat ${heat.value.toFixed(0)}/100 (x${heat.tier}) | t=${gameState.elapsed.toFixed(1)}s | chaos=${chaos.chaosValue.toFixed(0)}${chaos.chaosArmed ? " ARMED" : ""} safe=${!road.boxedIn && !road.danger} | ${director.tier} #${director.eventCount} ev=${director.activeType || "-"} x${score.eventMult.toFixed(2)} vis=${B420.VisualChaosSystem.KEYS.filter((k) => visual.v[k]).map((k) => k + ':' + visual.v[k].toFixed(2)).join(',') || '-'} | vehicles=${trafficManager.vehicles.length}`);
 
       hud.update(gameState, heat, blaze, chaos);
       touch.setBlaze(blaze.progressFraction(), blaze.ready);
@@ -372,6 +376,7 @@
 
     function render(dt) {
       renderer.begin(dt);
+      visual.update(events, calmMotion); // all-neutral unless one of the six visual events is running
       const movingLines = events.isMovingLinesActive();
       let bgSpeed = 0;
       if (gameState.crashing) {
@@ -382,18 +387,21 @@
       const slowdownActive = events.ambientOn();
       const go = events.level(B420.EVENTS.GREENOUT); // 0 the instant the event ends, so the filter can't linger
       canvas.style.filter = go > 0.01 ? 'saturate(' + (1 + 0.3 * go).toFixed(2) + ') hue-rotate(' + (go * 14).toFixed(1) + 'deg)' : '';
+      renderer.beginWorld(visual.v, visual.motion);
       renderer.drawBackground(dt, bgSpeed, movingLines, slowdownActive ? B420.CONFIG.SLOWDOWN_TRAIL_ALPHA : 0,
-        { sway: events.level(B420.EVENTS.ROAD_DRUNK) * 13, melt: events.level(B420.EVENTS.ROAD_MELTDOWN) * 9 });
+        { sway: events.level(B420.EVENTS.ROAD_DRUNK) * 13, melt: events.level(B420.EVENTS.ROAD_MELTDOWN) * 9,
+          wave: visual.v.roadWave, smear: visual.v.speedSmear, motion: visual.motion });
       hud.el.classList.toggle('slowdown-ease', slowdownActive);
 
       if (gameState.state === B420.STATES.MENU) {
         player.draw(renderer.ctx, false);
+        renderer.endWorld();
         renderer.drawVignette();
         renderer.end();
         return;
       }
 
-      const streak = Math.max(fuel.level, events.level(B420.EVENTS.BLOWN) * 0.8, events.level(B420.EVENTS.ROAD_MELTDOWN) * 0.6);
+      const streak = Math.max(fuel.level, events.level(B420.EVENTS.BLOWN) * 0.8, events.level(B420.EVENTS.ROAD_MELTDOWN) * 0.6, visual.v.speedSmear);
       if (streak > 0.02) renderer.drawFuelStreaks(streak);
       trafficManager.draw(renderer.ctx, renderer.time);
       events.drawOverlay(renderer.ctx);
@@ -404,6 +412,8 @@
         const spin = Math.sin((0.6 - gameState.crashPhaseTimer) * 16) * 0.4;
         player.draw(renderer.ctx, false, spin);
       }
+      renderer.endWorld(); // overlays, vignette and the (DOM) HUD stay level and un-distorted
+      renderer.drawGhost(visual.v, visual.motion);
       if (events.isGreenFogActive()) renderer.drawGreenFog(events.greenFogStrength());
       if (go > 0.01) renderer.drawGreenout(go);
       if (slowdownActive) renderer.drawSlowdownVignette(B420.CONFIG.SLOWDOWN_VIGNETTE_ALPHA * (events.isGreenFogActive() ? 0.35 : 1));

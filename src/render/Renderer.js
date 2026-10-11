@@ -49,9 +49,20 @@ B420.Renderer = class Renderer {
 
     const laneW = this.laneWidth();
     // subtle lane shading
-    for (let i = 0; i < B420.CONFIG.LANES; i++) {
-      ctx.fillStyle = i % 2 === 0 ? B420.COLORS.asphalt : B420.COLORS.asphaltDark;
-      ctx.fillRect(i * laneW, 0, laneW, this.height);
+    const wave = (fx && fx.wave) || 0, mo = (fx && fx.motion) || 1, smear = (fx && fx.smear) || 0;
+    if (wave > 0.01) { // MELTING POINT / BAD TRIP / THE ROAD IS FINE: asphalt flows in horizontal strips (drawing only)
+      for (let y = 0; y < this.height; y += 16) {
+        const off = Math.sin(y * 0.018 + this.time * mo * 1.5) * wave * 8;
+        for (let i = 0; i < B420.CONFIG.LANES; i++) {
+          ctx.fillStyle = i % 2 === 0 ? B420.COLORS.asphalt : B420.COLORS.asphaltDark;
+          ctx.fillRect(i * laneW + off, y, laneW, 17);
+        }
+      }
+    } else {
+      for (let i = 0; i < B420.CONFIG.LANES; i++) {
+        ctx.fillStyle = i % 2 === 0 ? B420.COLORS.asphalt : B420.COLORS.asphaltDark;
+        ctx.fillRect(i * laneW, 0, laneW, this.height);
+      }
     }
     // shoulders
     ctx.fillStyle = B420.COLORS.asphaltLight;
@@ -61,7 +72,8 @@ B420.Renderer = class Renderer {
     this.dashOffset = (this.dashOffset + scrollSpeed * dt) % 46;
     ctx.strokeStyle = B420.COLORS.laneLine;
     ctx.lineWidth = 3;
-    ctx.setLineDash([22, 24]);
+    ctx.setLineDash([22 + 18 * smear, 24 - 18 * smear]); // WARP SPEED stretches the dashes (same period)
+    const rip = Math.max((fx && fx.melt) || 0, wave * 8);
     for (let i = 1; i < B420.CONFIG.LANES; i++) {
       let x = i * laneW;
       if (movingLinesActive) x += Math.sin(this.time * 3.2 + i) * 10;
@@ -69,9 +81,9 @@ B420.Renderer = class Renderer {
       // (laneX), cars, steering and collision boxes are untouched.
       if (fx && fx.sway) x += Math.sin(this.time * 2.2 + i * 0.7) * fx.sway;
       ctx.beginPath();
-      if (fx && fx.melt) {
+      if (rip) {
         for (let y = this.dashOffset - 46, first = true; y <= this.height + 14; y += 14) {
-          const xx = x + Math.sin(y * 0.025 + this.time * 3 + i) * fx.melt;
+          const xx = x + Math.sin(y * 0.025 + this.time * 3 * mo + i) * rip;
           if (first) { ctx.moveTo(xx, y); first = false; } else ctx.lineTo(xx, y);
         }
       } else {
@@ -95,6 +107,50 @@ B420.Renderer = class Renderer {
   }
 
   end() { this.ctx.restore(); }
+
+  // Pass 2C: WORLD-layer distortion. Pure canvas drawing: the DOM HUD, physics, lane centres, steering and collision
+  // boxes never see these transforms. Always paired with endWorld().
+  beginWorld(v, motion) {
+    const ctx = this.ctx;
+    ctx.save();
+    if (!v) return;
+    const lean = v.cameraLean || 0, br = v.perspectiveBreath || 0, dr = v.horizonDrift || 0, sm = v.speedSmear || 0;
+    if (!(lean || br || dr || sm)) return;
+    const t = this.time * (motion || 1), w = this.width, h = this.height, hy = h * 0.3;
+    ctx.fillStyle = B420.COLORS.asphaltDark; // anything the transform uncovers stays asphalt-dark
+    ctx.fillRect(0, 0, w, h);
+    if (lean) { // SIDEWAYS: up to ~5 degrees, slightly zoomed so corners stay covered
+      const s = 1 + 0.07 * Math.abs(lean);
+      ctx.translate(w / 2, h / 2); ctx.rotate(lean * 5 * Math.PI / 180); ctx.scale(s, s); ctx.translate(-w / 2, -h / 2);
+    }
+    if (br || sm) { // perspective breathing (slow) / WARP SPEED stretch
+      const sy = 1 + 0.02 * br * Math.sin(t * 1.7) + 0.025 * br * Math.sin(t * 0.9 + 1) + 0.06 * sm;
+      const sx = 1 + 0.015 * br * Math.sin(t * 1.3 + 2) - 0.02 * sm;
+      ctx.translate(w / 2, hy); ctx.scale(sx, sy); ctx.translate(-w / 2, -hy);
+    }
+    if (dr) { // horizon drift: the far road slides sideways relative to the near road
+      ctx.translate(0, hy); ctx.transform(1, 0, dr * 0.05 * Math.sin(t * 0.8), 1, 0, 0); ctx.translate(0, -hy);
+    }
+  }
+  endWorld() { this.ctx.restore(); }
+
+  // DOUBLE VISION / BAD TRIP / THE ROAD IS FINE (ghost) and WARP SPEED (vertical echo): faint copies of the finished
+  // world frame. Alpha is capped (GHOST_ALPHA_MAX) so the real image is always the crispest one.
+  drawGhost(v, motion) {
+    const g = (v && v.ghost) || 0, sm = (v && v.speedSmear) || 0;
+    if (g < 0.01 && sm < 0.01) return;
+    const ctx = this.ctx, cv = ctx.canvas, dpr = cv.width / this.width, t = this.time * (motion || 1), A = B420.CONFIG.GHOST_ALPHA_MAX;
+    ctx.save();
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.globalCompositeOperation = 'lighter';
+    if (g >= 0.01) {
+      const dx = (5 + 5 * Math.sin(t * 2.3)) * g * dpr;
+      ctx.globalAlpha = A * g; ctx.drawImage(cv, -dx, 0);
+      ctx.globalAlpha = A * 0.6 * g; ctx.drawImage(cv, dx * 1.8, 0);
+    }
+    if (sm >= 0.01) { ctx.globalAlpha = A * 0.6 * sm; ctx.drawImage(cv, 0, 12 * sm * dpr); }
+    ctx.restore();
+  }
 
   drawGreenFog(strength) {
     const ctx = this.ctx;

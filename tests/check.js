@@ -256,7 +256,7 @@ section('ChaosDirector (Pass 2A)');
   ok('tiers: 1-2 EARLY, 3-5 MID, 6+ LATE', [1, 2].every((n) => d0.tierFor(n) === 'EARLY') && [3, 4, 5].every((n) => d0.tierFor(n) === 'MID') && [6, 7, 20].every((n) => d0.tierFor(n) === 'LATE'));
   ok('next-selection tier follows events reached (0->EARLY, 2->MID, 5->LATE)', (() => { const d = mk(); const r = []; for (const n of [0, 1, 2, 5, 6]) { d.setCount(n); r.push(d.tier); } return r.join() === 'EARLY,EARLY,MID,LATE,LATE'; })());
   const registry = [...evSrc.matchAll(/type: B420\.EVENTS\.([A-Z0-9_]+)/g)].map((m) => E[m[1]]).sort();
-  ok('Director pool == the existing Event420System registry (nothing invented)', registry.length === 17 && JSON.stringify([...pool].sort()) === JSON.stringify(registry), registry.join());
+  ok('Director pool == the existing Event420System registry (nothing invented)', registry.length === 23 && JSON.stringify([...pool].sort()) === JSON.stringify(registry), registry.join());
   ok('selection only ever returns existing events', Array.from({ length: 300 }, () => mk().select(base)).every((t) => pool.includes(t)));
   { const d = mk(); d.onStarted(E.UFO); d.onEnded(E.UFO);
     ok('immediate repeat has zero weight', d.weights(base)[E.UFO] === 0);
@@ -369,7 +369,7 @@ section('Pass 2B-1: CHAOS SURVIVED, x4.20, convoy, cop panic, rush, UFO sweep');
   // --- Director expansion ---
   { const pool = Object.keys(D.BASE), W = (c, n, ctx) => { const d = new D(); d.setCount(n); return d.weights(ctx); };
     const base = { vehicles: 2, heatTier: 2, blazeActive: false };
-    ok('expanded Director pool includes the five new events', [E.GRANDMA_CONVOY, E.COP_PANIC, E.TRAFFIC_RUSH, E.UFO_SWEEP, E.X420].every((e) => pool.includes(e)) && pool.length === 17);
+    ok('expanded Director pool includes the five new events', [E.GRANDMA_CONVOY, E.COP_PANIC, E.TRAFFIC_RUSH, E.UFO_SWEEP, E.X420].every((e) => pool.includes(e)) && pool.length === 23);
     const early = W(null, 0, base), mid = W(null, 2, base), late = W(null, 6, base);
     ok('EARLY: gentle mix + occasional convoy; no cop panic / rush / sweep yet', early[E.COP_PANIC] === 0 && early[E.TRAFFIC_RUSH] === 0 && early[E.UFO_SWEEP] === 0 && early[E.GRANDMA_CONVOY] > 0 && early[E.UFO] > 0 && early[E.MUNCHIES] > 0);
     ok('MID unlocks cop panic / rush / sweep', mid[E.COP_PANIC] > 0 && mid[E.TRAFFIC_RUSH] > 0 && mid[E.UFO_SWEEP] > 0);
@@ -479,6 +479,68 @@ section('Pass 2B-2: ROAD DRUNK, STAMPEDE, GREENOUT, COP + UFO, MAYHEM, MELTDOWN,
     ok(type + ': reset leaves no modifiers/visuals/UFO', !ev.active && ev.ufo === null && ev.level(type) === 0 && tm.mods.copPanic === false && tm.mods.speedBoost === 0 && !tm.mods.muscleSkin && tm.spawner.mods.intervalMult === 1 && Object.keys(tm.spawner.mods.typeBoost).length === 0 && ev.scoreMult() === 1); }
   ok('no event bypasses centralized traffic safety (events never touch lanes; spawns go through chooseSafeLane)', !/\.lane\s*=(?!=)|targetLane|laneT|laneFrom/.test(evSrc) && /chooseSafeLane\(this\.vehicles, this\.pickups\)|chooseSafeLane\(vehicles, pickups\)/.test(read('src/systems/SpawnManager.js')) && /if \(free\.length <= 1\) return null/.test(read('src/systems/SpawnManager.js')));
   ok('debug can force all seven', ['road_drunk', 'hot_rod_stampede', 'greenout', 'cop_ufo', 'munchies_mayhem', 'road_meltdown', 'blown'].every((a) => read('src/ui/DebugPanel.js').includes('ev-' + a)));
+}
+
+section('Pass 2C: VISUAL CHAOS PACK');
+{
+  const t = load([...CORE, 'src/entities/Vehicle.js', 'src/systems/VisualChaosSystem.js', 'src/systems/ChaosSystem.js', 'src/systems/ChaosDirector.js', 'src/systems/Event420System.js', 'src/systems/SpawnManager.js', 'src/systems/TrafficManager.js'], {});
+  const B420 = t.B420, E = B420.EVENTS, V = B420.VisualChaosSystem, KEYS = V.KEYS, D = B420.ChaosDirector;
+  const R = { width: 400, height: 800, time: 0, laneX: (l) => 50 + l * 100, laneWidth: () => 100 };
+  const mkEv = () => { const tm = new B420.TrafficManager(R), ev = new B420.Event420System(tm, R, null); return { tm, ev }; };
+  const NEW = [E.MELTING_POINT, E.DOUBLE_VISION, E.BAD_TRIP, E.SIDEWAYS, E.WARP_SPEED, E.ROAD_IS_FINE];
+  const at = (type, secs, calm) => { const { ev } = mkEv(), vis = new V(); ev.launch(type); for (let i = 0; i < Math.round(secs * 10); i++) ev.update(0.1, 0, {}, []); vis.update(ev, calm); return vis; };
+  const nz = (vis) => KEYS.filter((k) => vis.v[k] !== 0).sort().join();
+  const dur = (type) => mkEv().ev.registry.find((e) => e.type === type).duration;
+  const evSrc = read('src/systems/Event420System.js'), rsrc = read('src/render/Renderer.js'), vsrc = read('src/systems/VisualChaosSystem.js');
+
+  ok('all six visual events registered with their target durations', NEW.every((n) => mkEv().ev.registry.some((e) => e.type === n)) && dur(E.MELTING_POINT) >= 5 && dur(E.MELTING_POINT) <= 7 && dur(E.DOUBLE_VISION) >= 4 && dur(E.DOUBLE_VISION) <= 6 && dur(E.BAD_TRIP) >= 6 && dur(E.BAD_TRIP) <= 8 && dur(E.SIDEWAYS) >= 5 && dur(E.SIDEWAYS) <= 7 && dur(E.WARP_SPEED) >= 4 && dur(E.WARP_SPEED) <= 6 && dur(E.ROAD_IS_FINE) >= 6 && dur(E.ROAD_IS_FINE) <= 8);
+  ok('neutral at rest', new V().isNeutral() && KEYS.length === 6);
+  // event-specific profiles
+  ok('MELTING POINT = wave + breath only', nz(at(E.MELTING_POINT, 2)) === ['perspectiveBreath', 'roadWave'].sort().join());
+  ok('DOUBLE VISION = ghost only', nz(at(E.DOUBLE_VISION, 2)) === 'ghost');
+  ok('BAD TRIP = wave + breath + drift + ghost', nz(at(E.BAD_TRIP, 4)) === ['roadWave', 'perspectiveBreath', 'horizonDrift', 'ghost'].sort().join());
+  ok('SIDEWAYS = lean only', nz(at(E.SIDEWAYS, 1.5)) === 'cameraLean');
+  ok('WARP SPEED = smear only', nz(at(E.WARP_SPEED, 2)) === 'speedSmear');
+  ok('THE ROAD IS FINE escalates: wave first, then breath, drift, ghost', (() => { const a = at(E.ROAD_IS_FINE, 1.5).v, b = at(E.ROAD_IS_FINE, 3.5).v, c = at(E.ROAD_IS_FINE, 5.5).v; return a.roadWave > 0 && a.ghost === 0 && a.horizonDrift === 0 && b.perspectiveBreath > a.perspectiveBreath && c.horizonDrift > 0 && c.ghost > 0 && c.roadWave > a.roadWave; })());
+  ok('BAD TRIP starts mild, peaks, then eases', (() => { const a = at(E.BAD_TRIP, 1).v.roadWave, b = at(E.BAD_TRIP, 5).v.roadWave, c = at(E.BAD_TRIP, 6.7).v.roadWave; return a < b && c < b; })());
+  ok('SIDEWAYS leans one way, then the other', at(E.SIDEWAYS, 1.5).v.cameraLean > 0.8 && at(E.SIDEWAYS, 4.5).v.cameraLean < -0.8 && Math.abs(at(E.SIDEWAYS, 3).v.cameraLean) < 0.2);
+  // unrelated events never inherit visual distortion
+  { const others = mkEv().ev.registry.map((e) => e.type).filter((x) => !NEW.includes(x));
+    ok('every OTHER event (UFO, MUNCHIES, COP PANIC, x4.20, GREENOUT, ROAD DRUNK ...) stays visually neutral', others.length === 17 && others.every((x) => at(x, 2.5).isNeutral()), others.length + ''); }
+  // bounded
+  ok('all primitives bounded (0..1, lean -1..1) over every event and progress', NEW.every((n) => { for (let s = 0; s <= 8; s += 0.3) { const v = at(n, s).v; if (KEYS.some((k) => !(v[k] >= (k === 'cameraLean' ? -1 : 0) && v[k] <= 1))) return false; } return true; }));
+  // render-only guarantees
+  const physics = ['src/entities/Player.js', 'src/core/InputManager.js', 'src/systems/CollisionSystem.js', 'src/entities/Vehicle.js', 'src/systems/TrafficManager.js', 'src/systems/SpawnManager.js', 'src/systems/ScoreSystem.js'].map((f) => read(f)).join('\n');
+  ok('physics, steering, traffic, spawning and scoring never reference the visual layer', !/VisualChaos|cameraLean|roadWave|speedSmear|horizonDrift|perspectiveBreath|\.ghost\b/.test(physics));
+  ok('VisualChaosSystem knows nothing about player/vehicles/lanes/collision/speed', !/player|vehicle|collision|scrollSpeed|speedMult|laneX|bounds/i.test(vsrc.replace(/\/\/[^\n]*/g, '')));
+  ok('SIDEWAYS lean is applied by canvas transform only, never to physics coordinates', /ctx\.rotate\(lean \*/.test(rsrc) && (rsrc.match(/ctx\.rotate\(/g) || []).length === 1 && !/\.rotate\(/.test(read('src/main.js')));
+  ok('lane geometry (laneX) untouched by MELTING POINT / waves', /laneX\(lane\) \{ return this\.laneWidth\(\) \* \(lane \+ 0\.5\); \}/.test(rsrc));
+  ok('WARP SPEED does not touch road speed, traffic speed or scoring', !B420.EVENT_MODS[E.WARP_SPEED] && (() => { const { tm, ev } = mkEv(), s0 = tm.currentScrollSpeed(60); ev.launch(E.WARP_SPEED); return tm.currentScrollSpeed(60) === s0 && tm.mods.speedBoost === 0 && tm.spawner.mods.intervalMult === 1 && ev.scoreMult() === 1; })() && !/visual/.test((read('src/main.js').match(/function roadSpeedMult\(\) \{[^}]*\}/) || [''])[0]));
+  ok('no visual event has traffic/spawn modifiers or a score multiplier', NEW.every((n) => !B420.EVENT_MODS[n]));
+  ok('DOUBLE VISION echoes are faint (alpha cap <= 0.2) and drawn only from the finished canvas', B420.CONFIG.GHOST_ALPHA_MAX <= 0.2 && /drawImage\(cv, -dx, 0\)/.test(rsrc) && /globalAlpha = A \* g/.test(rsrc) && !/ghost/.test(read('src/entities/Vehicle.js')));
+  ok('HUD is the anchor: world transforms live on the canvas context only (no HUD/DOM transform from effects)', !/hud\.el\.style|hud[^;\n]*transform/.test(read('src/main.js')) && /endWorld\(\); \/\/ overlays, vignette and the \(DOM\) HUD stay level/.test(read('src/main.js')));
+  // cleanup
+  for (const n of [E.BAD_TRIP, E.ROAD_IS_FINE, E.SIDEWAYS, E.WARP_SPEED, E.DOUBLE_VISION, E.MELTING_POINT]) {
+    const { ev } = mkEv(), vis = new V(); ev.launch(n); for (let i = 0; i < 30; i++) ev.update(0.1, 0, {}, []); vis.update(ev); const live = !vis.isNeutral();
+    for (let i = 0; i < 100 && ev.active; i++) ev.update(0.1, 0, {}, []); vis.update(ev); const ended = vis.isNeutral();
+    ev.launch(n); ev.update(1, 0, {}, []); ev.clear(); vis.update(ev); const cleared = vis.isNeutral();
+    ev.launch(n); ev.update(1, 0, {}, []); ev.reset(); vis.update(ev); const reset = vis.isNeutral();
+    ok(n + ': live, then every primitive neutral after natural end / clear / reset', live && ended && cleared && reset); }
+  ok('crash / RETRY / Home / new run reset the visual layer (clearChaos)', /function clearChaos\(\) \{[^}]*visual\.reset\(\);/.test(main) && ['startRun', 'triggerCollision', 'goHome'].every((f) => /clearChaos\(\)/.test(fnBody(f))));
+  ok('visual.update runs every frame from the active event (nothing persists)', /visual\.update\(events, calmMotion\)/.test(main));
+  // reduced motion
+  { const a = at(E.BAD_TRIP, 5).v, c = at(E.BAD_TRIP, 5, true), s = at(E.SIDEWAYS, 1.5).v, sc = at(E.SIDEWAYS, 1.5, true);
+    ok('reduced motion: same event, much calmer (<=40% amplitude, slower oscillation) but still visible', KEYS.every((k) => Math.abs(c.v[k]) <= Math.abs(a[k]) * 0.4 + 1e-9) && c.v.roadWave > 0 && Math.abs(sc.v.cameraLean) <= Math.abs(s.cameraLean) * 0.4 + 1e-9 && sc.v.cameraLean > 0.2 && c.motion === 0.5 && new V().motion === 1);
+    ok("main honors prefers-reduced-motion and the Renderer scales oscillation by motion", /prefers-reduced-motion: reduce/.test(main) && /this\.time \* \(motion \|\| 1\)/.test(rsrc) && /this\.time \* mo/.test(rsrc)); }
+  // Director
+  { const W = (n, ctx) => { const d = new D(); d.setCount(n); return d.weights(ctx || { vehicles: 2, heatTier: 2, blazeActive: false }); };
+    ok('Director: none EARLY; MID gets the four milder; LATE gets all six, BAD TRIP / ROAD IS FINE heaviest', NEW.every((n) => W(0)[n] === 0) && [E.MELTING_POINT, E.DOUBLE_VISION, E.SIDEWAYS, E.WARP_SPEED].every((n) => W(2)[n] > 0) && W(2)[E.BAD_TRIP] === 0 && W(2)[E.ROAD_IS_FINE] === 0 && NEW.every((n) => W(6)[n] > 0) && W(6)[E.BAD_TRIP] > W(6)[E.DOUBLE_VISION] && W(6)[E.ROAD_IS_FINE] > W(6)[E.SIDEWAYS]);
+    { const d = new D(); d.setCount(6); const clean = d.weights({ vehicles: 2, heatTier: 2, blazeActive: false })[E.DOUBLE_VISION]; d.onStarted(E.BAD_TRIP); d.onEnded(E.BAD_TRIP);
+      const after = d.weights({ vehicles: 2, heatTier: 2, blazeActive: false });
+      ok('perception-heavy events are not chained (visual-heavy cool-down) and repeats are blocked', after[E.DOUBLE_VISION] < clean * 0.8 && after[E.BAD_TRIP] === 0 && Array.from({ length: 200 }, () => d.select({ vehicles: 2, heatTier: 2, blazeActive: false })).every((x) => x !== E.BAD_TRIP)); }
+    ok('every visual event can be drawn in LATE (no deadlock, valid pool)', (() => { const seen = new Set(); for (let i = 0; i < 8000; i++) { const d = new D(); d.setCount(6); seen.add(d.select({ vehicles: 2, heatTier: 2, blazeActive: false })); } return NEW.every((n) => seen.has(n)); })()); }
+  ok('debug can force all six', ['melting_point', 'double_vision', 'bad_trip', 'sideways', 'warp_speed', 'road_is_fine'].every((a) => read('src/ui/DebugPanel.js').includes('ev-' + a)));
+  ok("THE ROAD IS FINE has its deadpan status line via the existing toast", /statusLine: 'THE ROAD IS FINE\.'/.test(evSrc) && /events\.onStart = \(def\) => \{ if \(def\.statusLine\) hud\.stageToast\(def\.statusLine\)/.test(main));
 }
 
 section('results label + first-time tip');
